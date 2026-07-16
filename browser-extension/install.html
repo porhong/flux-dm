@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install FluxDM Browser Integration</title>
+  <style>
+    :root { color-scheme: dark; font: 16px/1.55 system-ui, sans-serif; background: #08101f; color: #dce8f8; }
+    body { margin: 0; }
+    main { max-width: 760px; margin: 48px auto; padding: 0 24px 64px; }
+    h1 { font-size: 30px; }
+    section { margin: 24px 0; padding: 22px; border: 1px solid #26354b; border-radius: 14px; background: #0e192b; }
+    code { padding: 2px 6px; border-radius: 5px; background: #07101e; color: #67e8f9; }
+    li { margin: 9px 0; }
+    .note { color: #a8b8cc; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Install FluxDM Browser Integration</h1>
+  <p class="note">The FluxDM installer has already registered the secure native messaging host. Complete these browser steps once for Chrome and/or Edge.</p>
+  <section>
+    <h2>Chrome</h2>
+    <ol>
+      <li>Open <code>chrome://extensions</code>.</li>
+      <li>Enable <strong>Developer mode</strong>.</li>
+      <li>Select <strong>Load unpacked</strong>.</li>
+      <li>Select the folder containing this setup page and <code>manifest.json</code>.</li>
+      <li>Open <strong>FluxDM Browser Integration → Details → Extension options</strong>, then select <strong>Test connection</strong>.</li>
+    </ol>
+  </section>
+  <section>
+    <h2>Microsoft Edge</h2>
+    <ol>
+      <li>Open <code>edge://extensions</code>.</li>
+      <li>Enable <strong>Developer mode</strong>.</li>
+      <li>Select <strong>Load unpacked</strong>.</li>
+      <li>Select the folder containing this setup page and <code>manifest.json</code>.</li>
+      <li>Open the extension options and select <strong>Test connection</strong>.</li>
+    </ol>
+  </section>
+  <p class="note">Keep FluxDM installed at its registered location. Automatic interception can be disabled or excluded by host and file extension. Browser downloads are cancelled only after FluxDM accepts them.</p>
+</main>
+</body>
+</html>

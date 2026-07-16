@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FluxDM Browser Integration</title><link rel="stylesheet" href="options.css"></head>
+<body><main><h1>FluxDM Browser Integration</h1><p>Send eligible HTTP and HTTPS downloads to the FluxDM desktop app.</p>
+<section><h2>Connection</h2><button id="test">Test connection</button><output id="status">Not tested</output></section>
+<section><h2>Automatic interception</h2><label><input id="enabled" type="checkbox"> Enable automatic download interception</label><label><input id="cookies" type="checkbox"> Share browser cookies for accepted downloads (encrypted by Windows)</label><label for="excluded">Excluded hosts, one per line</label><textarea id="excluded" rows="6" placeholder="example.com"></textarea><label for="excluded-extensions">Excluded file extensions, one per line</label><textarea id="excluded-extensions" rows="5" placeholder="iso&#10;msi"></textarea><button id="save">Save settings</button></section>
+<p class="hint">The browser download is cancelled only after FluxDM accepts it. Authentication, paywalls, DRM, blob URLs, and non-HTTP protocols are never bypassed.</p></main><script src="options.js"></script></body></html>

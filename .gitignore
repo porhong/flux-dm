@@ -1,0 +1,11 @@
+build/bin
+node_modules
+frontend/dist
+frontend/package.json.md5
+dist/*
+!dist/.gitkeep
+frontend/coverage
+*.db
+*.db-shm
+*.db-wal
+*.log

@@ -1,0 +1,91 @@
+name: validation
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: windows-latest
+    env:
+      CGO_ENABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Download Go modules
+        run: go mod download
+      - name: Add MinGW compiler to PATH
+        shell: pwsh
+        run: Add-Content $env:GITHUB_PATH 'C:\msys64\ucrt64\bin'
+      - name: Verify formatting
+        shell: pwsh
+        run: |
+          go fmt ./...
+          if (git status --short) { throw "Go files are not formatted" }
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go test -race ./...
+      - run: go mod verify
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
+  frontend:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm audit --audit-level=high
+      - run: npm run build
+      - name: Validate browser extension
+        working-directory: ${{ github.workspace }}
+        run: |
+          node --check browser-extension/service-worker.js
+          node --check browser-extension/options.js
+          node --check scripts/browser-extension-smoke-driver.mjs
+          node --test browser-extension/policy.test.cjs
+
+  wails-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+      - run: wails build
+      - run: go build -trimpath -o build/bin/FluxDM.NativeHost.exe ./cmd/fluxdm-native-host
+      - run: wails build -nsis -s -skipbindings -trimpath -webview2 download
+      - name: Verify Windows version metadata
+        shell: pwsh
+        run: ./scripts/verify-version-metadata.ps1 -Path build/bin/FluxDM.exe,build/bin/FluxDM-amd64-installer.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fluxdm-unsigned-windows
+          path: |
+            build/bin/FluxDM.exe
+            build/bin/FluxDM.NativeHost.exe
+            build/bin/FluxDM-amd64-installer.exe

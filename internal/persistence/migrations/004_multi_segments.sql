@@ -1,0 +1,1 @@
+ALTER TABLE downloads ADD COLUMN connections INTEGER NOT NULL DEFAULT 1;

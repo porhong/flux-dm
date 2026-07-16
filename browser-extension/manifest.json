@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "FluxDM Browser Integration",
+  "version": "1.0.0",
+  "description": "Send eligible browser downloads and links to FluxDM.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxHN9B0MQt7DTD4Ac9Pc4BoPNRpVvh+DFA0WH1y14iBZ5+WMXRjF94D9G7UL1hpl0j1d19TLcgLMsHcF552AKpu2YsGyjSGLCixbG4DEr6H+VHh6H2wdarb+/JLSzgalsD2021Mp9VYYst8R1QsLLuq4P1qoGs4DE+P7nLuoOUNKtLvmhxxXYYFGUcIwCFa/gf7aslDo733trt8A2vfLV08E0fzoTvHw90XdaRhBUpNkO9GmuLMoo6aI6vTGvHLtuur0VC1K1laByyO/ytA0XnEVvwhMNXeHwT/zElXN40++AQyYkJWrzEh9MOg79xefKk5y6qNgMUEttQu5V/wjC4QIDAQAB",
+  "permissions": ["contextMenus", "cookies", "downloads", "nativeMessaging", "storage"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "service-worker.js" },
+  "options_page": "options.html",
+  "action": { "default_title": "FluxDM" }
+}

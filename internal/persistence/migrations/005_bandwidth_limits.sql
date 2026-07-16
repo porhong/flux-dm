@@ -1,0 +1,1 @@
+ALTER TABLE downloads ADD COLUMN bandwidth_limit INTEGER NOT NULL DEFAULT 0;
