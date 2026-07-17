@@ -64,8 +64,12 @@ export const downloadSchema = z.object({
   restartRequired: z.boolean(),
   mimeType: z.string(),
   createdAt: z.string(),
-  startedAt: z.string().optional(),
-  completedAt: z.string().optional(),
+  // Wails serializes nil Go *string fields as JSON null. Downloads have no
+  // start or completion time while they are queued, so these fields must
+  // accept null; accepting omission also preserves compatibility with older
+  // bindings that left nil pointer fields out of the payload.
+  startedAt: z.string().nullish(),
+  completedAt: z.string().nullish(),
   lastError: z.string(),
   retryCount: z.number(),
   connections: z.number(),
