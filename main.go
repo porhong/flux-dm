@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/fluxdm/fluxdm/internal/application"
 	fluxlog "github.com/fluxdm/fluxdm/internal/logging"
+	platformwindows "github.com/fluxdm/fluxdm/internal/platform/windows"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -18,6 +20,16 @@ import (
 var assets embed.FS
 
 func main() {
+	instanceLock, err := platformwindows.AcquireInstanceLock("Local\\FluxDM.Desktop.Instance")
+	if errors.Is(err, platformwindows.ErrAlreadyRunning) {
+		return
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "FluxDM could not secure its single-instance lock")
+		os.Exit(1)
+	}
+	defer func() { _ = instanceLock.Close() }()
+
 	paths, err := application.DefaultPaths()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "FluxDM could not determine its data directory")
