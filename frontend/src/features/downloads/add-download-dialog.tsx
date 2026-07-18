@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { FolderOpen, LoaderCircle, Search } from "lucide-react"
 import { Controller, useForm, useWatch } from "react-hook-form"
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { createDownload, probeURL, selectDestinationDirectory, startDownload, type DownloadItem, type ProbeResult } from "@/lib/backend"
+import { createDownload, defaultDownloadDirectory, probeURL, selectDestinationDirectory, startDownload, type DownloadItem, type ProbeResult } from "@/lib/backend"
 
 const formSchema = z.object({
   url: z.string().trim().url("Enter a valid HTTP or HTTPS URL.").refine((value) => value.startsWith("http://") || value.startsWith("https://"), "Only HTTP and HTTPS URLs are supported."),
@@ -36,6 +36,19 @@ export function AddDownloadDialog({ open, onOpenChange, onCreated }: AddDownload
     defaultValues: { url: "", destinationDir: "", fileName: "", connections: 4, bandwidthLimitMiB: 0, confirmExecutable:false },
   })
   const selectedConnections = useWatch({ control: form.control, name: "connections" })
+
+  useEffect(() => {
+    if (!open || form.getValues("destinationDir")) return
+    let active = true
+    void defaultDownloadDirectory()
+      .then((directory) => {
+        if (active && !form.getValues("destinationDir")) form.setValue("destinationDir", directory, { shouldValidate: true })
+      })
+      .catch((cause) => {
+        if (active) setError(errorMessage(cause))
+      })
+    return () => { active = false }
+  }, [form, open])
 
   const inspectURL = async () => {
     const valid = await form.trigger("url")
@@ -67,14 +80,16 @@ export function AddDownloadDialog({ open, onOpenChange, onCreated }: AddDownload
 
   const submit = form.handleSubmit(async (values) => {
     setError(null)
-    const inspected = probe?.url === values.url ? probe : await inspectURL()
-    if (!inspected) return
-	if(inspected.executableWarning&&!values.confirmExecutable){setError("Confirm that you want to download this executable or script.");return}
+    if (probe?.url !== values.url) {
+      await inspectURL()
+      return
+    }
+	if(probe.executableWarning&&!values.confirmExecutable){setError("Confirm that you want to download this executable or script.");return}
     try {
       const created = await createDownload({
         url: values.url,
         destinationDir: values.destinationDir,
-        fileName: values.fileName || inspected.fileName,
+        fileName: values.fileName || probe.fileName,
         connections: values.connections,
         bandwidthLimit: Math.round(values.bandwidthLimitMiB * 1024 * 1024),
 		confirmExecutable:values.confirmExecutable,
@@ -136,24 +151,34 @@ export function AddDownloadDialog({ open, onOpenChange, onCreated }: AddDownload
             />
           </Field>
 
-          {probe && (
-            <div className="rounded-lg border border-cyan-300/15 bg-cyan-300/5 p-3 text-xs text-slate-400">
-              <span className="font-medium text-cyan-200">URL verified</span>
-              <span className="ml-2">{formatBytes(probe.totalBytes)} · {probe.mimeType || "Unknown type"} · {probe.rangeSupported ? `${selectedConnections} ranged connections` : "Single-stream fallback"}</span>
-            </div>
-          )}
+          {probe && <DownloadDetails probe={probe} connections={selectedConnections} />}
 		  {probe?.executableWarning&&<label className="flex items-start gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3 text-sm text-amber-100"><input type="checkbox" {...form.register("confirmExecutable")}/><span>This file can run code on Windows. I chose this source and want FluxDM to download it. FluxDM will not open it automatically.</span></label>}
           {error && <p className="rounded-lg border border-red-400/15 bg-red-400/5 p-3 text-sm text-red-200" role="alert">{error}</p>}
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={form.formState.isSubmitting || probing}>
-              {form.formState.isSubmitting && <LoaderCircle className="size-4 animate-spin" />} Add and start
+              {(form.formState.isSubmitting || probing) && <LoaderCircle className="size-4 animate-spin" />} {probe?.url === form.getValues("url") ? "Add and start" : "Inspect download"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function DownloadDetails({ probe, connections }: { probe: ProbeResult; connections: number }) {
+  return (
+    <section className="rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-4" aria-label="Download details">
+      <div className="flex items-center justify-between gap-3"><h3 className="font-medium text-cyan-200">Download details</h3><span className="text-xs text-slate-400">URL verified</span></div>
+      <dl className="mt-3 grid grid-cols-[5rem_1fr] gap-x-3 gap-y-2 text-xs">
+        <dt className="text-slate-500">File</dt><dd className="min-w-0 truncate text-slate-200" title={probe.fileName}>{probe.fileName}</dd>
+        <dt className="text-slate-500">Size</dt><dd>{formatBytes(probe.totalBytes)}</dd>
+        <dt className="text-slate-500">Type</dt><dd className="truncate" title={probe.mimeType}>{probe.mimeType || "Unknown type"}</dd>
+        <dt className="text-slate-500">Source</dt><dd className="truncate" title={displayHost(probe.finalUrl || probe.url)}>{displayHost(probe.finalUrl || probe.url)}</dd>
+        <dt className="text-slate-500">Transfer</dt><dd>{probe.rangeSupported ? `${connections} ranged connections` : "Single-stream fallback"}</dd>
+      </dl>
+    </section>
   )
 }
 
@@ -184,4 +209,8 @@ function formatBytes(bytes: number): string {
     unit = units[index]
   }
   return `${value.toFixed(value >= 10 ? 1 : 2)} ${unit}`
+}
+
+function displayHost(rawURL: string): string {
+  try { return new URL(rawURL).host } catch { return "Unknown source" }
 }

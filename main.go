@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"fmt"
@@ -20,15 +21,27 @@ import (
 var assets embed.FS
 
 func main() {
-	instanceLock, err := platformwindows.AcquireInstanceLock("Local\\FluxDM.Desktop.Instance")
-	if errors.Is(err, platformwindows.ErrAlreadyRunning) {
-		return
+	var activator *platformwindows.InstanceActivator
+	if !isBindingGeneration() {
+		var err error
+		activator, err = platformwindows.NewInstanceActivator("Local\\FluxDM.Desktop.Activate")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "FluxDM could not initialize its activation signal")
+			os.Exit(1)
+		}
+		defer func() { _ = activator.Close() }()
+
+		instanceLock, err := platformwindows.AcquireInstanceLock("Local\\FluxDM.Desktop.Instance")
+		if errors.Is(err, platformwindows.ErrAlreadyRunning) {
+			_ = activator.Notify()
+			return
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "FluxDM could not secure its single-instance lock")
+			os.Exit(1)
+		}
+		defer func() { _ = instanceLock.Close() }()
 	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "FluxDM could not secure its single-instance lock")
-		os.Exit(1)
-	}
-	defer func() { _ = instanceLock.Close() }()
 
 	paths, err := application.DefaultPaths()
 	if err != nil {
@@ -63,10 +76,22 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 8, G: 15, B: 29, A: 1},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
-		OnBeforeClose:    app.beforeClose,
-		Bind:             []interface{}{app},
+		OnStartup: func(ctx context.Context) {
+			app.startup(ctx)
+			if activator != nil {
+				if err := activator.Start(app.showWindow); err != nil {
+					logger.Error("instance activation listener failed to start", map[string]any{"error": err.Error()})
+				}
+			}
+		},
+		OnShutdown: func(ctx context.Context) {
+			if activator != nil {
+				_ = activator.Close()
+			}
+			app.shutdown(ctx)
+		},
+		OnBeforeClose: app.beforeClose,
+		Bind:          []interface{}{app},
 	}); err != nil {
 		logger.Error("application stopped unexpectedly", map[string]any{"error": err.Error()})
 	}

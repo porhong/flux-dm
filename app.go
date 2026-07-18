@@ -207,6 +207,13 @@ func (a *App) beforeClose(ctx context.Context) bool {
 	return true
 }
 
+// showWindow restores the tray-hidden window after a second FluxDM launch.
+func (a *App) showWindow() {
+	if a.ctx != nil {
+		runtime.WindowShow(a.ctx)
+	}
+}
+
 func (a *App) ProbeURL(rawURL string) (application.ProbeDTO, error) {
 	if a.downloads == nil {
 		return application.ProbeDTO{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
@@ -406,6 +413,16 @@ func (a *App) SelectDestinationDirectory() (string, error) {
 	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Choose download folder",
 	})
+}
+
+// DefaultDownloadDirectory returns the user's standard Downloads folder for
+// pre-populating the download confirmation dialog.
+func (a *App) DefaultDownloadDirectory() (string, error) {
+	directory, err := application.DefaultDownloadDirectory()
+	if err != nil {
+		return "", application.NewError(application.ErrInternal, "Could not prepare the default Downloads folder.", err)
+	}
+	return directory, nil
 }
 
 // HealthCheck confirms that the backend and persistence layer are available.

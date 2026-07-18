@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -6,11 +6,13 @@ import { useUIStore } from "@/stores/ui-store"
 
 import App from "./App"
 
-const { cancelDownloadMock, healthCheckMock, listDownloadsMock, pauseDownloadMock, resumeDownloadMock, restartDownloadMock, startDownloadMock } = vi.hoisted(() => ({
+const { cancelDownloadMock, defaultDownloadDirectoryMock, healthCheckMock, listDownloadsMock, pauseDownloadMock, probeURLMock, resumeDownloadMock, restartDownloadMock, startDownloadMock } = vi.hoisted(() => ({
   cancelDownloadMock: vi.fn(),
+  defaultDownloadDirectoryMock: vi.fn(),
   healthCheckMock: vi.fn(),
   listDownloadsMock: vi.fn(),
   pauseDownloadMock: vi.fn(),
+  probeURLMock: vi.fn(),
   resumeDownloadMock: vi.fn(),
   restartDownloadMock: vi.fn(),
   startDownloadMock: vi.fn(),
@@ -21,9 +23,11 @@ vi.mock("@/lib/backend", async (importOriginal) => {
   return {
     ...actual,
     cancelDownload: cancelDownloadMock,
+    defaultDownloadDirectory: defaultDownloadDirectoryMock,
     healthCheck: healthCheckMock,
     listDownloads: listDownloadsMock,
     pauseDownload: pauseDownloadMock,
+    probeURL: probeURLMock,
     resumeDownload: resumeDownloadMock,
     restartDownload: restartDownloadMock,
     startDownload: startDownloadMock,
@@ -40,6 +44,7 @@ describe("App", () => {
     vi.clearAllMocks()
     useUIStore.setState({ activeSection: "downloads", density: "comfortable" })
     listDownloadsMock.mockResolvedValue([])
+    defaultDownloadDirectoryMock.mockResolvedValue("C:\\Users\\test\\Downloads")
     healthCheckMock.mockResolvedValue({
       status: "ok",
       version: "test",
@@ -84,8 +89,28 @@ describe("App", () => {
     expect(screen.getByRole("combobox", { name: "Connections" })).toHaveTextContent("4 connections")
 
     await user.type(screen.getByRole("textbox", { name: "Download URL" }), "file:///unsafe.bin")
-    await user.click(screen.getByRole("button", { name: "Add and start" }))
+    await user.click(screen.getByRole("button", { name: "Inspect download" }))
     expect(await screen.findByText("Only HTTP and HTTPS URLs are supported.")).toBeInTheDocument()
+  })
+
+  it("shows verified file details before starting a download in the default Downloads folder", async () => {
+    const user = userEvent.setup()
+    probeURLMock.mockResolvedValue({
+      url: "https://example.test/archive.zip", finalUrl: "https://cdn.example.test/archive.zip", fileName: "archive.zip",
+      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: false,
+    })
+    render(<App />)
+
+    await user.click(screen.getAllByRole("button", { name: "Add download" })[0])
+    const destination = screen.getByRole("textbox", { name: "Destination folder" })
+    await waitFor(() => expect(destination).toHaveValue("C:\\Users\\test\\Downloads"))
+    await user.type(screen.getByRole("textbox", { name: "Download URL" }), "https://example.test/archive.zip")
+    await user.click(screen.getByRole("button", { name: "Inspect download" }))
+
+    expect(await screen.findByRole("region", { name: "Download details" })).toBeInTheDocument()
+    expect(screen.getByText("archive.zip")).toBeInTheDocument()
+    expect(screen.getByText("2.00 MB")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Add and start" })).toBeInTheDocument()
   })
 
   it("offers pause, resume, retry, and restart actions", async () => {
@@ -128,6 +153,16 @@ describe("App", () => {
     await user.type(screen.getByRole("textbox", { name: "Search downloads" }), "archive-09999")
     expect(await screen.findByText("archive-09999.bin")).toBeInTheDocument()
     expect(screen.getAllByRole("row").length).toBe(2)
+  })
+
+  it("uses a compactable queue layout instead of a fixed-width table", async () => {
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "compact", fileName: "compact.bin", state: "paused" })])
+    render(<App />)
+
+    const table = await screen.findByRole("table", { name: "Downloads" })
+    expect(table).toHaveClass("download-list")
+    expect(table).not.toHaveClass("min-w-[980px]")
+    expect(screen.getByText("compact.bin").closest("[role='row']")).toHaveClass("download-list-row")
   })
 
   it("supports keyboard selection and properties", async () => {

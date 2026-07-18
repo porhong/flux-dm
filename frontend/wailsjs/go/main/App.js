@@ -22,6 +22,10 @@ export function CreateDownload(arg1) {
   return window['go']['main']['App']['CreateDownload'](arg1);
 }
 
+export function DefaultDownloadDirectory() {
+  return window['go']['main']['App']['DefaultDownloadDirectory']();
+}
+
 export function DeleteCategory(arg1) {
   return window['go']['main']['App']['DeleteCategory'](arg1);
 }

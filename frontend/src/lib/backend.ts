@@ -5,6 +5,7 @@ import {
   ClearSiteProfileSecrets as invokeClearSiteProfileSecrets,
   ClearPrivateData as invokeClearPrivateData,
   CreateDownload as invokeCreateDownload,
+  DefaultDownloadDirectory as invokeDefaultDownloadDirectory,
   DeleteCategory as invokeDeleteCategory,
   DeleteQueue as invokeDeleteQueue,
   DeleteSchedule as invokeDeleteSchedule,
@@ -157,6 +158,10 @@ export async function probeURL(url: string): Promise<ProbeResult> {
 
 export async function createDownload(input: CreateDownloadInput): Promise<DownloadItem> {
   return downloadSchema.parse(await invokeCreateDownload({ ...input, categoryId: input.categoryId ?? "", queueId: input.queueId ?? "", priority: input.priority ?? 0, siteProfileId:input.siteProfileId??"",confirmExecutable:input.confirmExecutable??false }))
+}
+
+export async function defaultDownloadDirectory(): Promise<string> {
+  return z.string().min(1).parse(await invokeDefaultDownloadDirectory())
 }
 
 export async function listCategories(): Promise<Category[]> { return z.array(categorySchema).parse(await invokeListCategories()) }

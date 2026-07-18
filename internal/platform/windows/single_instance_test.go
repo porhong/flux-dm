@@ -43,3 +43,51 @@ func TestAcquireInstanceLockRequiresName(t *testing.T) {
 		t.Fatal("empty name returned a lock")
 	}
 }
+
+func TestInstanceActivatorNotifiesRunningInstance(t *testing.T) {
+	name := fmt.Sprintf("Local\\FluxDM-activation-test-%d", time.Now().UnixNano())
+	listener, err := NewInstanceActivator(name)
+	if err != nil {
+		t.Fatalf("create listener: %v", err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+
+	received := make(chan struct{}, 1)
+	if err := listener.Start(func() { received <- struct{}{} }); err != nil {
+		t.Fatalf("start listener: %v", err)
+	}
+
+	signaler, err := NewInstanceActivator(name)
+	if err != nil {
+		t.Fatalf("create signaler: %v", err)
+	}
+	t.Cleanup(func() { _ = signaler.Close() })
+	if err := signaler.Notify(); err != nil {
+		t.Fatalf("notify listener: %v", err)
+	}
+
+	select {
+	case <-received:
+	case <-time.After(time.Second):
+		t.Fatal("activation notification was not received")
+	}
+}
+
+func TestInstanceActivatorRequiresNameAndHandler(t *testing.T) {
+	activator, err := NewInstanceActivator(" \t")
+	if err == nil {
+		t.Fatal("expected empty activation name to be rejected")
+	}
+	if activator != nil {
+		t.Fatal("empty activation name returned an activator")
+	}
+
+	activator, err = NewInstanceActivator(fmt.Sprintf("Local\\FluxDM-activation-handler-test-%d", time.Now().UnixNano()))
+	if err != nil {
+		t.Fatalf("create activator: %v", err)
+	}
+	t.Cleanup(func() { _ = activator.Close() })
+	if err := activator.Start(nil); err == nil {
+		t.Fatal("expected nil activation handler to be rejected")
+	}
+}

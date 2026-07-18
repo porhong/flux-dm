@@ -16,6 +16,8 @@ export function ClearSiteProfileSecrets(arg1:string):Promise<void>;
 
 export function CreateDownload(arg1:application.CreateDownloadInput):Promise<application.DownloadDTO>;
 
+export function DefaultDownloadDirectory():Promise<string>;
+
 export function DeleteCategory(arg1:string):Promise<void>;
 
 export function DeleteQueue(arg1:string):Promise<void>;
