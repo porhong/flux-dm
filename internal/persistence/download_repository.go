@@ -129,14 +129,7 @@ func (r *DownloadRepository) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf("delete download: %w", err)
 	}
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("read deleted download count: %w", err)
-	}
-	if affected == 0 {
-		return download.ErrNotFound
-	}
-	return nil
+	return requireAffected(result)
 }
 
 const selectDownload = `SELECT

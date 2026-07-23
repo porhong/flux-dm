@@ -12,6 +12,7 @@ import (
 	"github.com/fluxdm/fluxdm/internal/browserintegration"
 	"github.com/fluxdm/fluxdm/internal/download"
 	"github.com/fluxdm/fluxdm/internal/events"
+	fluxfs "github.com/fluxdm/fluxdm/internal/filesystem"
 	fluxlog "github.com/fluxdm/fluxdm/internal/logging"
 	"github.com/fluxdm/fluxdm/internal/organization"
 	"github.com/fluxdm/fluxdm/internal/persistence"
@@ -33,6 +34,7 @@ type App struct {
 	logger        *fluxlog.Logger
 	database      *persistence.Database
 	downloads     *application.DownloadService
+	files         *application.FileManagementService
 	organization  *application.OrganizationService
 	schedules     *application.SchedulerService
 	browserBridge *browserintegration.Server
@@ -113,6 +115,7 @@ func (a *App) startup(ctx context.Context) {
 		organizationRepository,
 	)
 	a.downloads.SetRequestProfileResolver(a.siteProfiles)
+	a.files = application.NewFileManagementService(database.Downloads(), fluxfs.NewCompletedFileManager(platformwindows.FileShell{}), a.bus)
 	if err := a.downloads.Recover(ctx); err != nil {
 		a.logger.Error("download recovery failed", map[string]any{"error": err.Error()})
 	}
@@ -388,6 +391,48 @@ func (a *App) DeleteDownloadedFile(id string) error {
 		return application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
 	}
 	return a.downloads.DeleteCompletedFile(a.ctx, id)
+}
+
+func (a *App) OpenCompletedDownloadFile(id string) error {
+	if a.files == nil {
+		return application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.Open(a.ctx, id)
+}
+
+func (a *App) RevealCompletedDownloadFile(id string) error {
+	if a.files == nil {
+		return application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.Reveal(a.ctx, id)
+}
+
+func (a *App) RenameCompletedDownloadFile(id, fileName string) (application.DownloadDTO, error) {
+	if a.files == nil {
+		return application.DownloadDTO{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.Rename(a.ctx, id, fileName)
+}
+
+func (a *App) MoveCompletedDownloadFiles(input application.MoveCompletedDownloadsInput) (application.CompletedFileOperationResult, error) {
+	if a.files == nil {
+		return application.CompletedFileOperationResult{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.Move(a.ctx, input)
+}
+
+func (a *App) RemoveCompletedDownloadHistory(ids []string) (application.CompletedFileOperationResult, error) {
+	if a.files == nil {
+		return application.CompletedFileOperationResult{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.RemoveHistory(a.ctx, ids)
+}
+
+func (a *App) RecycleCompletedDownloadFiles(ids []string) (application.CompletedFileOperationResult, error) {
+	if a.files == nil {
+		return application.CompletedFileOperationResult{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.RecycleAndRemoveHistory(a.ctx, ids)
 }
 
 func (a *App) ListCategories() ([]organization.Category, error) {

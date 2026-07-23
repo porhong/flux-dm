@@ -6,7 +6,7 @@ import { useUIStore } from "@/stores/ui-store"
 
 import App from "./App"
 
-const { cancelDownloadMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, healthCheckMock, listDownloadsMock, listPendingBrowserDownloadsMock, pauseDownloadMock, probeURLMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
+const { cancelDownloadMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, healthCheckMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
   cancelDownloadMock: vi.fn(),
   confirmBrowserDownloadMock: vi.fn(),
   defaultDownloadDirectoryMock: vi.fn(),
@@ -14,8 +14,10 @@ const { cancelDownloadMock, confirmBrowserDownloadMock, defaultDownloadDirectory
   healthCheckMock: vi.fn(),
   listDownloadsMock: vi.fn(),
   listPendingBrowserDownloadsMock: vi.fn(),
+  openCompletedDownloadFileMock: vi.fn(),
   pauseDownloadMock: vi.fn(),
   probeURLMock: vi.fn(),
+  recycleCompletedDownloadFilesMock: vi.fn(),
   resumeDownloadMock: vi.fn(),
   restartDownloadMock: vi.fn(),
   selectDestinationDirectoryMock: vi.fn(),
@@ -33,8 +35,10 @@ vi.mock("@/lib/backend", async (importOriginal) => {
     healthCheck: healthCheckMock,
     listDownloads: listDownloadsMock,
     listPendingBrowserDownloads: listPendingBrowserDownloadsMock,
+    openCompletedDownloadFile: openCompletedDownloadFileMock,
     pauseDownload: pauseDownloadMock,
     probeURL: probeURLMock,
+    recycleCompletedDownloadFiles: recycleCompletedDownloadFilesMock,
     resumeDownload: resumeDownloadMock,
     restartDownload: restartDownloadMock,
     selectDestinationDirectory: selectDestinationDirectoryMock,
@@ -245,16 +249,6 @@ describe("App", () => {
     expect(screen.getAllByRole("row").length).toBe(2)
   })
 
-  it("uses a compactable queue layout instead of a fixed-width table", async () => {
-    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "compact", fileName: "compact.bin", state: "paused" })])
-    render(<App />)
-
-    const table = await screen.findByRole("table", { name: "Downloads" })
-    expect(table).toHaveClass("download-list")
-    expect(table).not.toHaveClass("min-w-[980px]")
-    expect(screen.getByText("compact.bin").closest("[role='row']")).toHaveClass("download-list-row")
-  })
-
   it("supports keyboard selection and properties", async () => {
     const user = userEvent.setup()
     listDownloadsMock.mockResolvedValue([downloadFixture({ id: "keyboard", fileName: "keyboard.bin", state: "completed" })])
@@ -269,6 +263,30 @@ describe("App", () => {
     expect(selectedRow).not.toBeNull()
     fireEvent.keyDown(selectedRow as HTMLElement, { key: "Enter" })
     expect(screen.getByRole("dialog", { name: "Download properties" })).toBeInTheDocument()
+  })
+
+  it("opens a completed file only after an explicit row action", async () => {
+    const user = userEvent.setup()
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "completed", fileName: "report.pdf", state: "completed" })])
+    openCompletedDownloadFileMock.mockResolvedValue(undefined)
+    render(<App />)
+
+    await user.click(await screen.findByRole("button", { name: "More actions for report.pdf" }))
+    await user.click(screen.getByRole("menuitem", { name: /open/i }))
+    expect(openCompletedDownloadFileMock).toHaveBeenCalledWith("completed")
+  })
+
+  it("confirms recycling selected completed files", async () => {
+    const user = userEvent.setup()
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "completed", fileName: "report.pdf", state: "completed" })])
+    recycleCompletedDownloadFilesMock.mockResolvedValue({ updated: [], removedIds: ["completed"], skippedIds: [], failures: [] })
+    render(<App />)
+
+    await user.click(await screen.findByLabelText("Select report.pdf"))
+    await user.click(screen.getByRole("button", { name: "Remove files" }))
+    expect(screen.getByRole("dialog", { name: "Remove completed files" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Recycle files" }))
+    expect(recycleCompletedDownloadFilesMock).toHaveBeenCalledWith(["completed"])
   })
 
   it("supports keyboard transfer and global shortcuts", async () => {

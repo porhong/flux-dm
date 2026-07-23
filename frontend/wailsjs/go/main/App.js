@@ -98,6 +98,14 @@ export function ListSiteProfiles() {
   return window['go']['main']['App']['ListSiteProfiles']();
 }
 
+export function MoveCompletedDownloadFiles(arg1) {
+  return window['go']['main']['App']['MoveCompletedDownloadFiles'](arg1);
+}
+
+export function OpenCompletedDownloadFile(arg1) {
+  return window['go']['main']['App']['OpenCompletedDownloadFile'](arg1);
+}
+
 export function PauseDownload(arg1) {
   return window['go']['main']['App']['PauseDownload'](arg1);
 }
@@ -106,8 +114,20 @@ export function ProbeURL(arg1) {
   return window['go']['main']['App']['ProbeURL'](arg1);
 }
 
+export function RecycleCompletedDownloadFiles(arg1) {
+  return window['go']['main']['App']['RecycleCompletedDownloadFiles'](arg1);
+}
+
+export function RemoveCompletedDownloadHistory(arg1) {
+  return window['go']['main']['App']['RemoveCompletedDownloadHistory'](arg1);
+}
+
 export function RemoveDownloadRecord(arg1) {
   return window['go']['main']['App']['RemoveDownloadRecord'](arg1);
+}
+
+export function RenameCompletedDownloadFile(arg1, arg2) {
+  return window['go']['main']['App']['RenameCompletedDownloadFile'](arg1, arg2);
 }
 
 export function RestartDownload(arg1) {
@@ -116,6 +136,10 @@ export function RestartDownload(arg1) {
 
 export function ResumeDownload(arg1) {
   return window['go']['main']['App']['ResumeDownload'](arg1);
+}
+
+export function RevealCompletedDownloadFile(arg1) {
+  return window['go']['main']['App']['RevealCompletedDownloadFile'](arg1);
 }
 
 export function SaveCategory(arg1) {
