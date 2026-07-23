@@ -153,7 +153,13 @@ textarea {
 }
 
 .download-list-row {
-  grid-template-columns: 44px minmax(0, 1fr) minmax(220px, 38%) 160px 148px;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(180px, 38%) 132px 92px;
+}
+
+@media (min-width: 961px) {
+  .download-list-row--completed > :nth-child(2) {
+    grid-column: 2 / span 2;
+  }
 }
 
 @media (max-width: 1280px) {
@@ -168,10 +174,10 @@ textarea {
 
 @media (max-width: 960px) {
   .download-list-row {
-    grid-template-columns: 36px minmax(0, 1fr) minmax(160px, 42%) 88px;
+    grid-template-columns: 36px minmax(0, 1fr) 112px 48px;
   }
 
-  .download-list-row > :nth-child(4) {
+  .download-progress-cell {
     display: none;
   }
 }

@@ -115,8 +115,8 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
           <DialogDescription>Choose where to save it, then FluxDM will add it to the transfer queue.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <section className="flex min-w-0 items-center gap-3 rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-3" aria-label="Browser download details">
+        <div className="min-w-0 space-y-4">
+          <section className="flex w-full min-w-0 max-w-full items-center gap-3 rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-3" aria-label="Browser download details">
             <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-cyan-300/10 text-cyan-200"><FileDown className="size-4" /></div>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-slate-100" title={fileName || "Download"}>{fileName || "Download"}</p>
@@ -129,13 +129,13 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
           </section>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center justify-between gap-3">
               <label className="text-sm font-medium text-slate-200" htmlFor="browser-download-destination">Save to</label>
               <span className="text-xs text-slate-500">Defaults to Downloads</span>
             </div>
-            <div className="flex gap-2">
-              <Input id="browser-download-destination" aria-label="Destination folder" value={destinationDir} onChange={(event) => setDestinationDir(event.target.value)} autoFocus />
-              <Button type="button" variant="outline" aria-label="Browse destination folder" onClick={() => void chooseDirectory()} disabled={submitting}><FolderOpen className="size-4" /><span className="sr-only">Browse destination folder</span></Button>
+            <div className="flex min-w-0 gap-2">
+              <Input className="min-w-0 flex-1" id="browser-download-destination" aria-label="Destination folder" value={destinationDir} onChange={(event) => setDestinationDir(event.target.value)} autoFocus />
+              <Button className="shrink-0" type="button" variant="outline" aria-label="Browse destination folder" onClick={() => void chooseDirectory()} disabled={submitting}><FolderOpen className="size-4" /><span className="sr-only">Browse destination folder</span></Button>
             </div>
           </div>
 
@@ -149,7 +149,7 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
           {error ? <p className="rounded-lg border border-red-400/15 bg-red-400/5 p-3 text-sm text-red-200" role="alert">{error}</p> : null}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="min-w-0">
           <Button type="button" variant="ghost" onClick={cancel} disabled={submitting}>{resolved ? "Close" : "Cancel"}</Button>
           <Button type="button" onClick={() => void start()} disabled={!canStart}>
             {(submitting || probing) && <LoaderCircle className="size-4 animate-spin" />} Start download

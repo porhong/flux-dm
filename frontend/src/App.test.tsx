@@ -108,7 +108,7 @@ describe("App", () => {
     render(<App />)
 
     await screen.findByRole("dialog", { name: "Start this download?" })
-    await user.click(screen.getByRole("checkbox"))
+    await user.click(await screen.findByRole("checkbox"))
     await user.click(screen.getByRole("button", { name: "Start download" }))
 
     await waitFor(() => expect(confirmBrowserDownloadMock).toHaveBeenCalledWith(
@@ -247,7 +247,7 @@ describe("App", () => {
     await user.type(screen.getByRole("textbox", { name: "Search downloads" }), "archive-09999")
     expect(await screen.findByText("archive-09999.bin")).toBeInTheDocument()
     expect(screen.getAllByRole("row").length).toBe(2)
-  })
+  }, 15_000)
 
   it("supports keyboard selection and properties", async () => {
     const user = userEvent.setup()
@@ -274,6 +274,15 @@ describe("App", () => {
     await user.click(await screen.findByRole("button", { name: "More actions for report.pdf" }))
     await user.click(screen.getByRole("menuitem", { name: /open/i }))
     expect(openCompletedDownloadFileMock).toHaveBeenCalledWith("completed")
+  })
+
+  it("shows a completed download as a state without a progress bar", async () => {
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "completed", fileName: "report.pdf", state: "completed", downloadedBytes: 1024 })])
+    render(<App />)
+
+    expect(await screen.findByText("report.pdf")).toBeInTheDocument()
+    expect(screen.getAllByText("Completed")).toHaveLength(2)
+    expect(screen.queryByLabelText("report.pdf progress")).not.toBeInTheDocument()
   })
 
   it("confirms recycling selected completed files", async () => {

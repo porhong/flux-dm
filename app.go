@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -41,7 +42,11 @@ type App struct {
 	pending       *browserintegration.PendingStore
 	siteProfiles  *application.SiteProfileService
 	forceQuit     atomic.Bool
-	trayStarted   atomic.Bool
+	trayMu        sync.Mutex
+	trayStarted   bool
+	trayStop      chan struct{}
+	trayReady     chan struct{}
+	trayDone      chan struct{}
 }
 
 func NewApp(paths application.Paths, logger *fluxlog.Logger) *App {
@@ -130,7 +135,9 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(_ context.Context) {
-	stopTray()
+	trayShutdownCtx, cancelTrayShutdown := context.WithTimeout(context.Background(), 2*time.Second)
+	a.stopTray(trayShutdownCtx)
+	cancelTrayShutdown()
 	if a.schedules != nil {
 		a.schedules.Close()
 	}
