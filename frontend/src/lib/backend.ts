@@ -16,9 +16,15 @@ import {
   ListScheduleHistory as invokeListScheduleHistory,
   ListSchedules as invokeListSchedules,
   ListSiteProfiles as invokeListSiteProfiles,
+	MoveCompletedDownloadFiles as invokeMoveCompletedDownloadFiles,
+	OpenCompletedDownloadFile as invokeOpenCompletedDownloadFile,
   PauseDownload as invokePauseDownload,
   ProbeURL as invokeProbeURL,
-  RestartDownload as invokeRestartDownload,
+	RestartDownload as invokeRestartDownload,
+	RecycleCompletedDownloadFiles as invokeRecycleCompletedDownloadFiles,
+	RemoveCompletedDownloadHistory as invokeRemoveCompletedDownloadHistory,
+	RenameCompletedDownloadFile as invokeRenameCompletedDownloadFile,
+	RevealCompletedDownloadFile as invokeRevealCompletedDownloadFile,
   ResumeDownload as invokeResumeDownload,
   SaveCategory as invokeSaveCategory,
   SaveQueue as invokeSaveQueue,
@@ -107,6 +113,15 @@ export type DownloadItem = z.infer<typeof downloadSchema>
 export type DownloadProgress = z.infer<typeof progressSchema>
 export type ProbeResult = z.infer<typeof probeSchema>
 
+const completedFileOperationFailureSchema = z.object({ id: z.string(), message: z.string() })
+export const completedFileOperationResultSchema = z.object({
+  updated: z.array(downloadSchema),
+  removedIds: z.array(z.string()),
+  skippedIds: z.array(z.string()),
+  failures: z.array(completedFileOperationFailureSchema),
+})
+export type CompletedFileOperationResult = z.infer<typeof completedFileOperationResultSchema>
+
 const categorySchema = z.object({
   id: z.string(), name: z.string(), extensions: z.array(z.string()),
   destinationDir: z.string(), priority: z.number(), createdAt: z.string(),
@@ -144,6 +159,7 @@ export interface CreateDownloadInput {
 export interface SaveCategoryInput { id: string; name: string; extensions: string[]; destinationDir: string; priority: number }
 export interface SaveQueueInput { id: string; name: string; priority: number; maxParallel: number; maxConnections: 1 | 2 | 4 | 8 | 16; bandwidthLimit: number; sequential: boolean; enabled: boolean }
 export interface AssignDownloadsInput { downloadIds: string[]; categoryId: string; queueId: string; priority: number }
+export interface MoveCompletedDownloadsInput { downloadIds: string[]; destinationDir: string }
 export interface SaveScheduleInput { id:string;name:string;enabled:boolean;weekdays:number[];timeOfDay:string;action:z.infer<typeof scheduleActionSchema>;queueId:string;speedLimit:number;missedPolicy:z.infer<typeof missedPolicySchema>;postAction:z.infer<typeof postActionSchema>;confirmPowerAction:boolean }
 export interface SaveSiteProfileInput {id:string;name:string;hostPattern:string;authType:"none"|"basic"|"bearer";username:string;password:string;bearerToken:string;cookies:string;headers:Record<string,string>;proxyUrl:string;proxyUsername:string;proxyPassword:string}
 
@@ -179,6 +195,13 @@ export async function clearPrivateData():Promise<void>{await invokeClearPrivateD
 export async function listDownloads(): Promise<DownloadItem[]> {
   return z.array(downloadSchema).parse(await invokeListDownloads())
 }
+
+export async function openCompletedDownloadFile(id: string): Promise<void> { await invokeOpenCompletedDownloadFile(id) }
+export async function revealCompletedDownloadFile(id: string): Promise<void> { await invokeRevealCompletedDownloadFile(id) }
+export async function renameCompletedDownloadFile(id: string, fileName: string): Promise<DownloadItem> { return downloadSchema.parse(await invokeRenameCompletedDownloadFile(id, fileName)) }
+export async function moveCompletedDownloadFiles(input: MoveCompletedDownloadsInput): Promise<CompletedFileOperationResult> { return completedFileOperationResultSchema.parse(await invokeMoveCompletedDownloadFiles(input)) }
+export async function removeCompletedDownloadHistory(ids: string[]): Promise<CompletedFileOperationResult> { return completedFileOperationResultSchema.parse(await invokeRemoveCompletedDownloadHistory(ids)) }
+export async function recycleCompletedDownloadFiles(ids: string[]): Promise<CompletedFileOperationResult> { return completedFileOperationResultSchema.parse(await invokeRecycleCompletedDownloadFiles(ids)) }
 
 export async function startDownload(id: string): Promise<void> {
   await invokeStartDownload(id)

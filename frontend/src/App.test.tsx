@@ -6,11 +6,13 @@ import { useUIStore } from "@/stores/ui-store"
 
 import App from "./App"
 
-const { cancelDownloadMock, healthCheckMock, listDownloadsMock, pauseDownloadMock, resumeDownloadMock, restartDownloadMock, startDownloadMock } = vi.hoisted(() => ({
+const { cancelDownloadMock, healthCheckMock, listDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, startDownloadMock } = vi.hoisted(() => ({
   cancelDownloadMock: vi.fn(),
   healthCheckMock: vi.fn(),
   listDownloadsMock: vi.fn(),
+  openCompletedDownloadFileMock: vi.fn(),
   pauseDownloadMock: vi.fn(),
+  recycleCompletedDownloadFilesMock: vi.fn(),
   resumeDownloadMock: vi.fn(),
   restartDownloadMock: vi.fn(),
   startDownloadMock: vi.fn(),
@@ -23,9 +25,11 @@ vi.mock("@/lib/backend", async (importOriginal) => {
     cancelDownload: cancelDownloadMock,
     healthCheck: healthCheckMock,
     listDownloads: listDownloadsMock,
+    openCompletedDownloadFile: openCompletedDownloadFileMock,
     pauseDownload: pauseDownloadMock,
     resumeDownload: resumeDownloadMock,
     restartDownload: restartDownloadMock,
+    recycleCompletedDownloadFiles: recycleCompletedDownloadFilesMock,
     startDownload: startDownloadMock,
   }
 })
@@ -144,6 +148,30 @@ describe("App", () => {
     expect(selectedRow).not.toBeNull()
     fireEvent.keyDown(selectedRow as HTMLElement, { key: "Enter" })
     expect(screen.getByRole("dialog", { name: "Download properties" })).toBeInTheDocument()
+  })
+
+  it("opens a completed file only after an explicit row action", async () => {
+    const user = userEvent.setup()
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "completed", fileName: "report.pdf", state: "completed" })])
+    openCompletedDownloadFileMock.mockResolvedValue(undefined)
+    render(<App />)
+
+    await user.click(await screen.findByRole("button", { name: "More actions for report.pdf" }))
+    await user.click(screen.getByRole("menuitem", { name: /open/i }))
+    expect(openCompletedDownloadFileMock).toHaveBeenCalledWith("completed")
+  })
+
+  it("confirms recycling selected completed files", async () => {
+    const user = userEvent.setup()
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "completed", fileName: "report.pdf", state: "completed" })])
+    recycleCompletedDownloadFilesMock.mockResolvedValue({ updated: [], removedIds: ["completed"], skippedIds: [], failures: [] })
+    render(<App />)
+
+    await user.click(await screen.findByLabelText("Select report.pdf"))
+    await user.click(screen.getByRole("button", { name: "Remove files" }))
+    expect(screen.getByRole("dialog", { name: "Remove completed files" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Recycle files" }))
+    expect(recycleCompletedDownloadFilesMock).toHaveBeenCalledWith(["completed"])
   })
 
   it("supports keyboard transfer and global shortcuts", async () => {

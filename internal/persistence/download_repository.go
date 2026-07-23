@@ -124,6 +124,14 @@ func (r *DownloadRepository) Save(ctx context.Context, task download.Download) e
 	return nil
 }
 
+func (r *DownloadRepository) Delete(ctx context.Context, id string) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM downloads WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete download: %w", err)
+	}
+	return requireAffected(result)
+}
+
 const selectDownload = `SELECT
 	id, url, final_url, file_name, destination_path, temp_path, state,
 	total_bytes, downloaded_bytes, range_supported, etag, last_modified,

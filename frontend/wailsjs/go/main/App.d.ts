@@ -44,13 +44,25 @@ export function ListSchedules():Promise<Array<scheduler.Schedule>>;
 
 export function ListSiteProfiles():Promise<Array<siteprofile.Profile>>;
 
+export function MoveCompletedDownloadFiles(arg1:application.MoveCompletedDownloadsInput):Promise<application.CompletedFileOperationResult>;
+
+export function OpenCompletedDownloadFile(arg1:string):Promise<void>;
+
 export function PauseDownload(arg1:string):Promise<void>;
 
 export function ProbeURL(arg1:string):Promise<application.ProbeDTO>;
 
+export function RecycleCompletedDownloadFiles(arg1:Array<string>):Promise<application.CompletedFileOperationResult>;
+
+export function RemoveCompletedDownloadHistory(arg1:Array<string>):Promise<application.CompletedFileOperationResult>;
+
+export function RenameCompletedDownloadFile(arg1:string,arg2:string):Promise<application.DownloadDTO>;
+
 export function RestartDownload(arg1:string):Promise<void>;
 
 export function ResumeDownload(arg1:string):Promise<void>;
+
+export function RevealCompletedDownloadFile(arg1:string):Promise<void>;
 
 export function SaveCategory(arg1:application.SaveCategoryInput):Promise<organization.Category>;
 
