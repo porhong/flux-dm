@@ -53,6 +53,84 @@ func TestDownloadServiceCompletesAndPersistsDownload(t *testing.T) {
 	}
 }
 
+func TestDownloadServiceRemovesCompletedRecordAndKeepsFile(t *testing.T) {
+	server := testserver.New()
+	defer server.Close()
+	service, database, _ := newTestService(t, server)
+	defer database.Close()
+	defer service.Close()
+
+	created, err := service.Create(context.Background(), application.CreateDownloadInput{URL: server.URL("/file"), DestinationDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Start(context.Background(), created.ID); err != nil {
+		t.Fatal(err)
+	}
+	completed := waitForState(t, service, created.ID, "completed")
+	if err := service.RemoveRecord(context.Background(), completed.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(completed.DestinationPath); err != nil {
+		t.Fatalf("record removal deleted the completed file: %v", err)
+	}
+	if _, err := service.Get(context.Background(), completed.ID); err == nil {
+		t.Fatal("removed download record was still available")
+	}
+}
+
+func TestDownloadServiceDeletesCompletedFileAndRecord(t *testing.T) {
+	server := testserver.New()
+	defer server.Close()
+	service, database, _ := newTestService(t, server)
+	defer database.Close()
+	defer service.Close()
+
+	created, err := service.Create(context.Background(), application.CreateDownloadInput{URL: server.URL("/file"), DestinationDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Start(context.Background(), created.ID); err != nil {
+		t.Fatal(err)
+	}
+	completed := waitForState(t, service, created.ID, "completed")
+	if err := service.DeleteCompletedFile(context.Background(), completed.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(completed.DestinationPath); !os.IsNotExist(err) {
+		t.Fatalf("completed file was not deleted: %v", err)
+	}
+	if _, err := service.Get(context.Background(), completed.ID); err == nil {
+		t.Fatal("deleted download record was still available")
+	}
+}
+
+func TestDownloadServiceKeepsRecordWhenCompletedFileIsMissing(t *testing.T) {
+	server := testserver.New()
+	defer server.Close()
+	service, database, _ := newTestService(t, server)
+	defer database.Close()
+	defer service.Close()
+
+	created, err := service.Create(context.Background(), application.CreateDownloadInput{URL: server.URL("/file"), DestinationDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Start(context.Background(), created.ID); err != nil {
+		t.Fatal(err)
+	}
+	completed := waitForState(t, service, created.ID, "completed")
+	if err := os.Remove(completed.DestinationPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.DeleteCompletedFile(context.Background(), completed.ID); err == nil {
+		t.Fatal("expected missing completed file to be rejected")
+	}
+	if _, err := service.Get(context.Background(), completed.ID); err != nil {
+		t.Fatalf("record should remain after failed file deletion: %v", err)
+	}
+}
+
 func TestDownloadServiceRejectsUnsupportedConnectionCount(t *testing.T) {
 	server := testserver.New()
 	defer server.Close()

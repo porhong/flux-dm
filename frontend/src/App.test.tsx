@@ -6,15 +6,19 @@ import { useUIStore } from "@/stores/ui-store"
 
 import App from "./App"
 
-const { cancelDownloadMock, defaultDownloadDirectoryMock, healthCheckMock, listDownloadsMock, pauseDownloadMock, probeURLMock, resumeDownloadMock, restartDownloadMock, startDownloadMock } = vi.hoisted(() => ({
+const { cancelDownloadMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, healthCheckMock, listDownloadsMock, listPendingBrowserDownloadsMock, pauseDownloadMock, probeURLMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
   cancelDownloadMock: vi.fn(),
+  confirmBrowserDownloadMock: vi.fn(),
   defaultDownloadDirectoryMock: vi.fn(),
+  discardBrowserDownloadMock: vi.fn(),
   healthCheckMock: vi.fn(),
   listDownloadsMock: vi.fn(),
+  listPendingBrowserDownloadsMock: vi.fn(),
   pauseDownloadMock: vi.fn(),
   probeURLMock: vi.fn(),
   resumeDownloadMock: vi.fn(),
   restartDownloadMock: vi.fn(),
+  selectDestinationDirectoryMock: vi.fn(),
   startDownloadMock: vi.fn(),
 }))
 
@@ -23,13 +27,17 @@ vi.mock("@/lib/backend", async (importOriginal) => {
   return {
     ...actual,
     cancelDownload: cancelDownloadMock,
+    confirmBrowserDownload: confirmBrowserDownloadMock,
     defaultDownloadDirectory: defaultDownloadDirectoryMock,
+    discardBrowserDownload: discardBrowserDownloadMock,
     healthCheck: healthCheckMock,
     listDownloads: listDownloadsMock,
+    listPendingBrowserDownloads: listPendingBrowserDownloadsMock,
     pauseDownload: pauseDownloadMock,
     probeURL: probeURLMock,
     resumeDownload: resumeDownloadMock,
     restartDownload: restartDownloadMock,
+    selectDestinationDirectory: selectDestinationDirectoryMock,
     startDownload: startDownloadMock,
   }
 })
@@ -44,7 +52,11 @@ describe("App", () => {
     vi.clearAllMocks()
     useUIStore.setState({ activeSection: "downloads", density: "comfortable" })
     listDownloadsMock.mockResolvedValue([])
+    listPendingBrowserDownloadsMock.mockResolvedValue([])
+    confirmBrowserDownloadMock.mockResolvedValue({ id: "browser-download" })
     defaultDownloadDirectoryMock.mockResolvedValue("C:\\Users\\test\\Downloads")
+    discardBrowserDownloadMock.mockResolvedValue(undefined)
+    selectDestinationDirectoryMock.mockResolvedValue("")
     healthCheckMock.mockResolvedValue({
       status: "ok",
       version: "test",
@@ -61,6 +73,84 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Downloads" })).toBeInTheDocument()
     expect(await screen.findByText("Healthy")).toBeInTheDocument()
     expect(healthCheckMock).toHaveBeenCalledOnce()
+  })
+
+  it("recovers a browser handoff that arrived before the event listener", async () => {
+    probeURLMock.mockResolvedValue({
+      url: "https://example.test/archive.zip", finalUrl: "https://example.test/archive.zip", fileName: "archive.zip",
+      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: false,
+    })
+    listPendingBrowserDownloadsMock.mockResolvedValue([{
+      pendingId: "browser-pending-1", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
+    }])
+
+    render(<App />)
+
+    expect(await screen.findByRole("dialog", { name: "Start this download?" })).toBeInTheDocument()
+    expect(screen.getByText("archive.zip")).toBeInTheDocument()
+  })
+
+  it("passes executable confirmation from a browser handoff to the backend", async () => {
+    const user = userEvent.setup()
+    probeURLMock.mockResolvedValue({
+      url: "https://example.test/setup.exe", finalUrl: "https://example.test/setup.exe", fileName: "setup.exe",
+      totalBytes: 2_097_152, mimeType: "application/vnd.microsoft.portable-executable", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: true,
+    })
+    listPendingBrowserDownloadsMock.mockResolvedValue([{
+      pendingId: "browser-pending-exe", url: "https://example.test/setup.exe", suggestedFilename: "setup.exe", referrer: "",
+    }])
+    startDownloadMock.mockResolvedValue(undefined)
+
+    render(<App />)
+
+    await screen.findByRole("dialog", { name: "Start this download?" })
+    await user.click(screen.getByRole("checkbox"))
+    await user.click(screen.getByRole("button", { name: "Start download" }))
+
+    await waitFor(() => expect(confirmBrowserDownloadMock).toHaveBeenCalledWith(
+      "browser-pending-exe", "C:\\Users\\test\\Downloads", "setup.exe", 4, true,
+    ))
+    expect(startDownloadMock).toHaveBeenCalledWith("browser-download")
+  })
+
+  it("lets a browser handoff choose a destination folder before starting", async () => {
+    const user = userEvent.setup()
+    probeURLMock.mockResolvedValue({
+      url: "https://example.test/archive.zip", finalUrl: "https://example.test/archive.zip", fileName: "archive.zip",
+      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: false,
+    })
+    listPendingBrowserDownloadsMock.mockResolvedValue([{
+      pendingId: "browser-pending-folder", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
+    }])
+    selectDestinationDirectoryMock.mockResolvedValue("D:\\Downloads")
+    startDownloadMock.mockResolvedValue(undefined)
+
+    render(<App />)
+
+    await screen.findByRole("dialog", { name: "Start this download?" })
+    await user.click(screen.getByRole("button", { name: "Browse destination folder" }))
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Destination folder" })).toHaveValue("D:\\Downloads"))
+    await user.click(screen.getByRole("button", { name: "Start download" }))
+
+    await waitFor(() => expect(confirmBrowserDownloadMock).toHaveBeenCalledWith(
+      "browser-pending-folder", "D:\\Downloads", "archive.zip", 4, false,
+    ))
+  })
+
+  it("keeps a browser handoff open after inspection fails and discards it only when cancelled", async () => {
+    const user = userEvent.setup()
+    probeURLMock.mockRejectedValue(new Error("FluxDM could not inspect that URL."))
+    listPendingBrowserDownloadsMock.mockResolvedValue([{
+      pendingId: "browser-pending-failure", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
+    }])
+
+    render(<App />)
+
+    await screen.findByRole("dialog", { name: "Start this download?" })
+    expect(await screen.findByText("FluxDM could not inspect that URL.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Start download" })).toBeDisabled()
+    await user.click(screen.getByRole("button", { name: "Cancel" }))
+    expect(discardBrowserDownloadMock).toHaveBeenCalledWith("browser-pending-failure")
   })
 
   it("navigates between sidebar sections", async () => {

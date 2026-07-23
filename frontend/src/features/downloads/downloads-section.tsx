@@ -1,15 +1,15 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
-import { Activity, ArrowDownToLine, Ban, Download, Gauge, Info, LoaderCircle, MoreHorizontal, Pause, Play, RefreshCw, RotateCcw, Search } from "lucide-react"
+import { Activity, ArrowDownToLine, Ban, Download, FileX2, Gauge, Info, LoaderCircle, MoreHorizontal, Pause, Play, RefreshCw, RotateCcw, Search, Trash2 } from "lucide-react"
 import { EventsOff, EventsOn } from "../../../wailsjs/runtime/runtime"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { assignDownloads, cancelDownload, downloadSchema, listCategories, listDownloads, listQueues, pauseDownload, progressSchema, restartDownload, resumeDownload, startDownload, type Category, type DownloadItem, type DownloadQueue, type HealthStatus } from "@/lib/backend"
+import { assignDownloads, cancelDownload, deleteDownloadedFile, downloadSchema, listCategories, listDownloads, listQueues, pauseDownload, progressSchema, removeDownloadRecord, restartDownload, resumeDownload, startDownload, type Category, type DownloadItem, type DownloadQueue, type HealthStatus } from "@/lib/backend"
 
 import { AddDownloadDialog } from "./add-download-dialog"
 import { publishProgress, useDownloadProgress } from "./progress-store"
@@ -24,6 +24,7 @@ interface DownloadsSectionProps {
 const rowHeight = 96
 const viewportHeight = 560
 const overscan = 5
+type RemovalTarget = { item: DownloadItem; deleteFile: boolean }
 
 export function DownloadsSection({ health, hasBackendError, addDialogOpen, onAddDialogOpenChange }: DownloadsSectionProps) {
   const [downloads, setDownloads] = useState<DownloadItem[]>([])
@@ -37,6 +38,7 @@ export function DownloadsSection({ health, hasBackendError, addDialogOpen, onAdd
   const [queues, setQueues] = useState<DownloadQueue[]>([])
   const [bulkCategory, setBulkCategory] = useState("none")
   const [bulkQueue, setBulkQueue] = useState("none")
+  const [removalTarget, setRemovalTarget] = useState<RemovalTarget | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -85,6 +87,19 @@ export function DownloadsSection({ health, hasBackendError, addDialogOpen, onAdd
     await assignDownloads({ downloadIds: ids, categoryId, queueId, priority: 0 })
     setDownloads((current) => current.map((item) => selected.has(item.id) ? { ...item, categoryId, queueId, priority: 0 } : item))
   }
+  const removeCompletedDownload = useCallback(async () => {
+    if (!removalTarget) return
+    if (removalTarget.deleteFile) await deleteDownloadedFile(removalTarget.item.id)
+    else await removeDownloadRecord(removalTarget.item.id)
+    setDownloads((current) => current.filter((item) => item.id !== removalTarget.item.id))
+    setSelected((current) => {
+      const next = new Set(current)
+      next.delete(removalTarget.item.id)
+      return next
+    })
+    setProperties((current) => current?.id === removalTarget.item.id ? null : current)
+    setRemovalTarget(null)
+  }, [removalTarget])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -104,8 +119,8 @@ export function DownloadsSection({ health, hasBackendError, addDialogOpen, onAdd
         <Metric icon={Download} label="Completed" value={String(completed)} detail={`${downloads.length} total downloads`} />
       </div>
 
-      <div className="rounded-2xl border border-white/8 bg-white/[0.025] shadow-2xl shadow-black/20">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 px-5 py-4">
+      <div className="ui-panel rounded-2xl">
+        <div className="ui-panel-header flex flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div><h2 className="font-medium">Transfer queue</h2><p className="mt-1 text-xs text-slate-500">Virtualized history, adaptive segments, and crash-safe recovery.</p></div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-500" /><Input className="w-56 pl-9" aria-label="Search downloads" placeholder="Search downloads" value={searchText} onChange={(event) => { setSearchText(event.target.value); setScrollTop(0) }} /></div>
@@ -113,19 +128,20 @@ export function DownloadsSection({ health, hasBackendError, addDialogOpen, onAdd
             <Badge variant={health ? "default" : hasBackendError ? "destructive" : "secondary"}>{health ? "Ready" : hasBackendError ? "Offline" : "Starting"}</Badge>
           </div>
         </div>
-        {selected.size > 0 && <div className="flex flex-wrap items-center gap-2 border-b border-white/8 bg-cyan-400/[0.04] px-5 py-2 text-xs"><span className="mr-2 text-cyan-200">{selected.size} selected</span><Button size="sm" variant="ghost" onClick={() => void runBulk((item) => item.state === "downloading" ? pauseDownload(item.id) : Promise.resolve())}><Pause className="size-3.5" /> Pause</Button><Button size="sm" variant="ghost" onClick={() => void runBulk((item) => item.state === "paused" ? resumeDownload(item.id) : Promise.resolve())}><Play className="size-3.5" /> Resume</Button><Button size="sm" variant="ghost" onClick={() => void runBulk((item) => ["queued", "paused", "downloading"].includes(item.state) ? cancelDownload(item.id) : Promise.resolve())}><Ban className="size-3.5" /> Cancel</Button><select aria-label="Bulk category" className="rounded border border-white/10 bg-slate-950 p-1.5" value={bulkCategory} onChange={(event)=>setBulkCategory(event.target.value)}><option value="none">No category</option>{categories.map((item)=><option key={item.id} value={item.id}>{item.name}</option>)}</select><select aria-label="Bulk queue" className="rounded border border-white/10 bg-slate-950 p-1.5" value={bulkQueue} onChange={(event)=>setBulkQueue(event.target.value)}><option value="none">Default queue</option>{queues.map((item)=><option key={item.id} value={item.id}>{item.name}</option>)}</select><Button size="sm" variant="outline" onClick={()=>void organizeSelected()}>Organize</Button><Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear</Button></div>}
+        {selected.size > 0 && <div className="flex flex-wrap items-center gap-2 border-b border-border bg-primary/10 px-5 py-2 text-xs"><span className="mr-2 text-cyan-200">{selected.size} selected</span><Button size="sm" variant="ghost" onClick={() => void runBulk((item) => item.state === "downloading" ? pauseDownload(item.id) : Promise.resolve())}><Pause className="size-3.5" /> Pause</Button><Button size="sm" variant="ghost" onClick={() => void runBulk((item) => item.state === "paused" ? resumeDownload(item.id) : Promise.resolve())}><Play className="size-3.5" /> Resume</Button><Button size="sm" variant="ghost" onClick={() => void runBulk((item) => ["queued", "paused", "downloading"].includes(item.state) ? cancelDownload(item.id) : Promise.resolve())}><Ban className="size-3.5" /> Cancel</Button><select aria-label="Bulk category" className="ui-field rounded p-1.5" value={bulkCategory} onChange={(event)=>setBulkCategory(event.target.value)}><option value="none">No category</option>{categories.map((item)=><option key={item.id} value={item.id}>{item.name}</option>)}</select><select aria-label="Bulk queue" className="ui-field rounded p-1.5" value={bulkQueue} onChange={(event)=>setBulkQueue(event.target.value)}><option value="none">Default queue</option>{queues.map((item)=><option key={item.id} value={item.id}>{item.name}</option>)}</select><Button size="sm" variant="outline" onClick={()=>void organizeSelected()}>Organize</Button><Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear</Button></div>}
         {loadError && <p className="m-4 rounded-lg border border-red-400/15 bg-red-400/5 p-3 text-sm text-red-200" role="alert">{loadError}</p>}
         {downloads.length === 0 ? <EmptyDownloads onAdd={() => onAddDialogOpenChange(true)} /> : filtered.length === 0 ? <div className="grid min-h-60 place-items-center text-sm text-slate-500">No downloads match the current filters.</div> : (
-          <VirtualDownloadList items={filtered} selected={selected} scrollTop={scrollTop} onScroll={setScrollTop} onToggle={toggleSelected} onProperties={setProperties} onSelectAll={selectVisible} />
+          <VirtualDownloadList items={filtered} selected={selected} scrollTop={scrollTop} onScroll={setScrollTop} onToggle={toggleSelected} onProperties={setProperties} onSelectAll={selectVisible} onRemoveRecord={(item) => setRemovalTarget({ item, deleteFile: false })} onDeleteFile={(item) => setRemovalTarget({ item, deleteFile: true })} />
         )}
       </div>
       <AddDownloadDialog open={addDialogOpen} onOpenChange={onAddDialogOpenChange} onCreated={(item) => upsertDownload(setDownloads, item)} />
       <DownloadProperties item={properties} onOpenChange={(open) => { if (!open) setProperties(null) }} />
+      <DownloadRemovalDialog target={removalTarget} onOpenChange={(open) => { if (!open) setRemovalTarget(null) }} onConfirm={removeCompletedDownload} />
     </>
   )
 }
 
-function VirtualDownloadList({ items, selected, scrollTop, onScroll, onToggle, onProperties, onSelectAll }: { items: DownloadItem[]; selected: Set<string>; scrollTop: number; onScroll: (value: number) => void; onToggle: (id: string) => void; onProperties: (item: DownloadItem) => void; onSelectAll: () => void }) {
+function VirtualDownloadList({ items, selected, scrollTop, onScroll, onToggle, onProperties, onSelectAll, onRemoveRecord, onDeleteFile }: { items: DownloadItem[]; selected: Set<string>; scrollTop: number; onScroll: (value: number) => void; onToggle: (id: string) => void; onProperties: (item: DownloadItem) => void; onSelectAll: () => void; onRemoveRecord: (item: DownloadItem) => void; onDeleteFile: (item: DownloadItem) => void }) {
   const start = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan)
   const count = Math.ceil(viewportHeight / rowHeight) + overscan * 2
   const visible = items.slice(start, start + count)
@@ -134,13 +150,13 @@ function VirtualDownloadList({ items, selected, scrollTop, onScroll, onToggle, o
     <div role="row" className="download-list-row grid h-11 items-center border-b border-white/8 px-4 text-xs font-medium text-slate-500"><div role="columnheader"><input aria-label="Select all visible downloads" type="checkbox" checked={allSelected} onChange={onSelectAll} /></div><div role="columnheader">File</div><div role="columnheader">Progress</div><div role="columnheader">Status</div><div role="columnheader" className="text-right">Actions</div></div>
     <div className="relative overflow-auto" style={{ height: Math.min(viewportHeight, items.length * rowHeight) }} onScroll={(event) => onScroll(event.currentTarget.scrollTop)}>
       <div className="relative" style={{ height: items.length * rowHeight }}>
-        {visible.map((item, offset) => <div key={item.id} className="absolute inset-x-0" style={{ height: rowHeight, transform: `translateY(${(start + offset) * rowHeight}px)` }}><DownloadRow item={item} selected={selected.has(item.id)} onToggle={onToggle} onProperties={onProperties} /></div>)}
+        {visible.map((item, offset) => <div key={item.id} className="absolute inset-x-0" style={{ height: rowHeight, transform: `translateY(${(start + offset) * rowHeight}px)` }}><DownloadRow item={item} selected={selected.has(item.id)} onToggle={onToggle} onProperties={onProperties} onRemoveRecord={onRemoveRecord} onDeleteFile={onDeleteFile} /></div>)}
       </div>
     </div>
   </div>
 }
 
-const DownloadRow = memo(function DownloadRow({ item, selected, onToggle, onProperties }: { item: DownloadItem; selected: boolean; onToggle: (id: string) => void; onProperties: (item: DownloadItem) => void }) {
+const DownloadRow = memo(function DownloadRow({ item, selected, onToggle, onProperties, onRemoveRecord, onDeleteFile }: { item: DownloadItem; selected: boolean; onToggle: (id: string) => void; onProperties: (item: DownloadItem) => void; onRemoveRecord: (item: DownloadItem) => void; onDeleteFile: (item: DownloadItem) => void }) {
   const liveProgress = useDownloadProgress(item.id)
   const [actionError, setActionError] = useState<string | null>(null)
   const downloadedBytes = liveProgress?.downloadedBytes ?? item.downloadedBytes
@@ -163,9 +179,21 @@ const DownloadRow = memo(function DownloadRow({ item, selected, onToggle, onProp
     <div role="cell" className="min-w-0"><div className="truncate font-medium text-slate-200" title={item.fileName}>{item.fileName}</div><div className="mt-1 truncate text-xs text-slate-500">{host}</div><div className="mt-1 text-[11px] text-slate-600">{item.segmentCount} {item.segmentCount === 1 ? "segment" : "segments"} · {item.connections}×</div></div>
     <div role="cell" className="pr-5"><Progress value={percentage} aria-label={`${item.fileName} progress`} /><div className="mt-1.5 flex justify-between text-xs text-slate-500"><span>{formatBytes(downloadedBytes)} · {formatRate(speed)}</span><span>{eta >= 0 ? `${formatDuration(eta)} left` : totalBytes >= 0 ? formatBytes(totalBytes) : "Unknown size"}</span></div></div>
     <div role="cell"><Badge variant={stateVariant(item.state)}>{stateLabel(item.state)}</Badge>{item.lastError && <div className="mt-1 truncate text-xs text-red-300" title={item.lastError}>{item.lastError}</div>}{actionError && <div className="mt-1 text-xs text-red-300">{actionError}</div>}</div>
-    <div role="cell" className="flex justify-end gap-1">{primaryAction && PrimaryIcon && <Button size="sm" variant="outline" aria-label={`${primaryAction.label} ${item.fileName}`} onClick={() => void runAction(primaryAction.run)}><PrimaryIcon className="size-4" /><span className="download-action-label">{primaryAction.label}</span></Button>}{["probing", "preparing", "pausing", "retrying"].includes(item.state) && <LoaderCircle className="my-auto size-4 animate-spin text-cyan-300" />}<DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" aria-label={`More actions for ${item.fileName}`}><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => onProperties(item)}><Info className="mr-2 size-4" /> Properties</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem disabled={!(["queued", "paused", "downloading"].includes(item.state))} onSelect={() => void runAction(() => cancelDownload(item.id))}><Ban className="mr-2 size-4" /> Cancel</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
+    <div role="cell" className="flex justify-end gap-1">{primaryAction && PrimaryIcon && <Button size="sm" variant="outline" aria-label={`${primaryAction.label} ${item.fileName}`} onClick={() => void runAction(primaryAction.run)}><PrimaryIcon className="size-4" /><span className="download-action-label">{primaryAction.label}</span></Button>}{["probing", "preparing", "pausing", "retrying"].includes(item.state) && <LoaderCircle className="my-auto size-4 animate-spin text-cyan-300" />}<DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant="ghost" aria-label={`More actions for ${item.fileName}`}><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => onProperties(item)}><Info className="mr-2 size-4" /> Properties</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem disabled={!(["queued", "paused", "downloading"].includes(item.state))} onSelect={() => void runAction(() => cancelDownload(item.id))}><Ban className="mr-2 size-4" /> Cancel</DropdownMenuItem>{item.state === "completed" && <><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => onRemoveRecord(item)}><Trash2 className="mr-2 size-4" /> Remove record</DropdownMenuItem><DropdownMenuItem className="text-red-300 focus:bg-red-400/10 focus:text-red-200" onSelect={() => onDeleteFile(item)}><FileX2 className="mr-2 size-4" /> Delete file & record</DropdownMenuItem></>}</DropdownMenuContent></DropdownMenu></div>
   </div>
 })
+
+function DownloadRemovalDialog({ target, onOpenChange, onConfirm }: { target: RemovalTarget | null; onOpenChange: (open: boolean) => void; onConfirm: () => Promise<void> }) {
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const deleteFile = target?.deleteFile ?? false
+  const confirm = async () => {
+    setError(null)
+    setSubmitting(true)
+    try { await onConfirm() } catch { setError(deleteFile ? "Could not delete the file. The record was kept." : "Could not remove the download record.") } finally { setSubmitting(false) }
+  }
+  return <Dialog open={target !== null} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>{deleteFile ? "Delete downloaded file?" : "Remove download record?"}</DialogTitle><DialogDescription>{deleteFile ? "This permanently deletes the completed file and removes it from the transfer queue." : "This removes the completed transfer from the queue but keeps the downloaded file on your device."}</DialogDescription></DialogHeader>{target && <p className="break-all rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-slate-300">{target.item.fileName}</p>}{error && <p className="text-sm text-red-300" role="alert">{error}</p>}<DialogFooter><Button variant="ghost" disabled={submitting} onClick={() => onOpenChange(false)}>Cancel</Button><Button variant="destructive" disabled={submitting} onClick={() => void confirm()}>{submitting ? "Working…" : deleteFile ? "Delete file" : "Remove record"}</Button></DialogFooter></DialogContent></Dialog>
+}
 
 function DownloadProperties({ item, onOpenChange }: { item: DownloadItem | null; onOpenChange: (open: boolean) => void }) {
   return <Dialog open={item !== null} onOpenChange={onOpenChange}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Download properties</DialogTitle><DialogDescription>Transfer metadata and local paths.</DialogDescription></DialogHeader>{item && <dl className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-3 text-sm"><Property label="Filename" value={item.fileName} /><Property label="State" value={stateLabel(item.state)} /><Property label="Source" value={item.finalUrl || item.url} /><Property label="Destination" value={item.destinationPath} /><Property label="Temporary file" value={item.tempPath} /><Property label="Size" value={formatBytes(item.totalBytes)} /><Property label="Segments" value={`${item.segmentCount} (${item.connections} configured connections)`} /><Property label="Retries" value={String(item.retryCount)} /><Property label="Created" value={new Date(item.createdAt).toLocaleString()} /></dl>}</DialogContent></Dialog>

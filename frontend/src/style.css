@@ -3,48 +3,66 @@
 @theme {
   --font-sans: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
 
-  /* FluxDM's warm city palette: sandstone surfaces, espresso depth, amber action. */
-  --color-slate-50: #fcfaf6;
-  --color-slate-100: #f7f2e9;
-  --color-slate-200: #e2dacf;
-  --color-slate-300: #cfc3b4;
-  --color-slate-400: #aa9d8d;
-  --color-slate-500: #8b7d6b;
-  --color-slate-600: #695c4c;
-  --color-slate-700: #514735;
-  --color-slate-800: #403829;
-  --color-slate-900: #372f24;
-  --color-slate-950: #312d22;
+  /* Neutral-ink surfaces let FluxDM's matcha primary carry the brand. */
+  --color-canvas: #0b1015;
+  --color-sidebar: #0e151b;
+  --color-surface: #141d24;
+  --color-surface-raised: #19242d;
+  --color-field: #0d141a;
+  --color-border: #293641;
+  --color-border-strong: #3b4a57;
+  --color-foreground: #edf4ed;
+  --color-muted: #9aa8a0;
+  --color-muted-subtle: #718078;
+  --color-primary: #82bf63;
+  --color-primary-hover: #a8d98e;
+  --color-primary-foreground: #0a120c;
+  --color-primary-subtle: #16261b;
+  --color-ring: #a8d98e;
 
-  --color-cyan-50: #fff9e8;
-  --color-cyan-100: #ffedbf;
-  --color-cyan-200: #f9d885;
-  --color-cyan-300: #edb640;
-  --color-cyan-400: #d88b0b;
-  --color-cyan-500: #bd7008;
-  --color-cyan-600: #9a5806;
-  --color-cyan-700: #7b4508;
-  --color-cyan-800: #63380d;
-  --color-cyan-900: #4a2b10;
-  --color-cyan-950: #2f1c0b;
+  /* Compatibility scale for existing content utilities. */
+  --color-slate-50: #f5f8f5;
+  --color-slate-100: #edf4ed;
+  --color-slate-200: #d5dfd6;
+  --color-slate-300: #bbc8bd;
+  --color-slate-400: #9aa8a0;
+  --color-slate-500: #718078;
+  --color-slate-600: #56645d;
+  --color-slate-700: #3b4a57;
+  --color-slate-800: #26333d;
+  --color-slate-900: #141d24;
+  --color-slate-950: #0b1015;
 
-  --color-amber-50: #fff9e8;
-  --color-amber-100: #ffedbf;
-  --color-amber-200: #f9d885;
-  --color-amber-300: #edb640;
-  --color-amber-400: #d88b0b;
-  --color-amber-500: #bd7008;
-  --color-amber-600: #9a5806;
-  --color-amber-700: #7b4508;
-  --color-amber-800: #63380d;
-  --color-amber-900: #4a2b10;
-  --color-amber-950: #2f1c0b;
+  --color-cyan-50: #f3faee;
+  --color-cyan-100: #e2f2d8;
+  --color-cyan-200: #c9e6bb;
+  --color-cyan-300: #a8d98e;
+  --color-cyan-400: #82bf63;
+  --color-cyan-500: #65a64b;
+  --color-cyan-600: #51893d;
+  --color-cyan-700: #417036;
+  --color-cyan-800: #365c2d;
+  --color-cyan-900: #2c4b26;
+  --color-cyan-950: #20391d;
+
+  --color-amber-50: #fff9e9;
+  --color-amber-100: #ffedbd;
+  --color-amber-200: #f7d982;
+  --color-amber-300: #e8b947;
+  --color-amber-400: #cf9330;
+  --color-amber-500: #ad7526;
+  --color-amber-600: #8c5b20;
+  --color-amber-700: #70471d;
+  --color-amber-800: #5b3a1b;
+  --color-amber-900: #4b3119;
+  --color-amber-950: #2b1a0e;
 }
 
 :root {
   font-family: var(--font-sans);
-  color: #e2dacf;
-  background: #312d22;
+  color: var(--color-foreground);
+  background: var(--color-canvas);
+  color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -64,6 +82,63 @@ body,
 body {
   min-height: 100vh;
   overflow: hidden;
+  background: var(--color-canvas);
+}
+
+.matcha-shell {
+  background-image:
+    radial-gradient(54rem 30rem at 8% -18%, rgb(130 191 99 / 10%), transparent 68%),
+    linear-gradient(135deg, rgb(168 217 142 / 3%), transparent 36%);
+}
+
+.ui-panel {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 18%);
+}
+
+.ui-panel-header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ui-field {
+  border: 1px solid var(--color-border);
+  background: var(--color-field);
+  color: var(--color-foreground);
+  outline: none;
+}
+
+.ui-field:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgb(168 217 142 / 32%);
+}
+
+.ui-field::placeholder {
+  color: var(--color-muted-subtle);
+}
+
+/* Normalize older feature utilities while feature code is progressively moved
+   to the semantic primitives above. */
+[class~="border-white/6"],
+[class~="border-white/8"],
+[class~="border-white/10"],
+[class~="border-white/15"] {
+  border-color: var(--color-border);
+}
+
+[class~="divide-white/6"] > :not(:last-child) {
+  border-color: var(--color-border);
+}
+
+[class~="bg-white/[0.025]"],
+[class~="bg-white/[0.03]"],
+[class~="bg-slate-950/40"] {
+  background-color: var(--color-surface);
+}
+
+[class~="hover:bg-white/5"]:hover,
+[class~="hover:bg-white/[0.02]"]:hover {
+  background-color: var(--color-surface-raised);
 }
 
 button,

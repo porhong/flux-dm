@@ -7,6 +7,13 @@
   "permissions": ["contextMenus", "cookies", "downloads", "nativeMessaging", "storage"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": { "service_worker": "service-worker.js" },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["policy.js", "content-script.js"],
+      "run_at": "document_start"
+    }
+  ],
   "options_page": "options.html",
   "action": { "default_title": "FluxDM" }
 }

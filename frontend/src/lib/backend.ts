@@ -4,14 +4,18 @@ import {
   AssignDownloads as invokeAssignDownloads,
   ClearSiteProfileSecrets as invokeClearSiteProfileSecrets,
   ClearPrivateData as invokeClearPrivateData,
+  ConfirmBrowserDownload as invokeConfirmBrowserDownload,
   CreateDownload as invokeCreateDownload,
   DefaultDownloadDirectory as invokeDefaultDownloadDirectory,
   DeleteCategory as invokeDeleteCategory,
+  DeleteDownloadedFile as invokeDeleteDownloadedFile,
   DeleteQueue as invokeDeleteQueue,
   DeleteSchedule as invokeDeleteSchedule,
   DeleteSiteProfile as invokeDeleteSiteProfile,
+  DiscardBrowserDownload as invokeDiscardBrowserDownload,
   HealthCheck as invokeHealthCheck,
   ListDownloads as invokeListDownloads,
+  ListPendingBrowserDownloads as invokeListPendingBrowserDownloads,
   ListCategories as invokeListCategories,
   ListQueues as invokeListQueues,
   ListScheduleHistory as invokeListScheduleHistory,
@@ -20,6 +24,7 @@ import {
   PauseDownload as invokePauseDownload,
   ProbeURL as invokeProbeURL,
   RestartDownload as invokeRestartDownload,
+  RemoveDownloadRecord as invokeRemoveDownloadRecord,
   ResumeDownload as invokeResumeDownload,
   SaveCategory as invokeSaveCategory,
   SaveQueue as invokeSaveQueue,
@@ -108,6 +113,21 @@ export type DownloadItem = z.infer<typeof downloadSchema>
 export type DownloadProgress = z.infer<typeof progressSchema>
 export type ProbeResult = z.infer<typeof probeSchema>
 
+// Emitted by the Go backend when a browser handoff arrives. The pendingId
+// ties the confirmation dialog back to the cookies that the backend kept
+// server-side; cookies themselves never appear in this payload.
+const downloadRequestSchema = z.object({
+  pendingId: z.string().min(1),
+  url: z.string(),
+  suggestedFilename: z.string(),
+  referrer: z.string(),
+})
+export type DownloadRequestEvent = z.infer<typeof downloadRequestSchema>
+
+export function isDownloadRequestEvent(value: unknown): value is DownloadRequestEvent {
+  return downloadRequestSchema.safeParse(value).success
+}
+
 const categorySchema = z.object({
   id: z.string(), name: z.string(), extensions: z.array(z.string()),
   destinationDir: z.string(), priority: z.number(), createdAt: z.string(),
@@ -160,6 +180,32 @@ export async function createDownload(input: CreateDownloadInput): Promise<Downlo
   return downloadSchema.parse(await invokeCreateDownload({ ...input, categoryId: input.categoryId ?? "", queueId: input.queueId ?? "", priority: input.priority ?? 0, siteProfileId:input.siteProfileId??"",confirmExecutable:input.confirmExecutable??false }))
 }
 
+// Consumes the parked browser handoff identified by pendingId and creates
+// the download record using the cookies captured when the request arrived.
+// The returned download is in queued state; the caller is responsible for
+// calling startDownload separately so a queue admission failure leaves the
+// record visible in the transfer list.
+export async function confirmBrowserDownload(
+  pendingId: string,
+  destinationDir: string,
+  fileName: string,
+  connections: 1 | 2 | 4 | 8 | 16,
+  confirmExecutable: boolean,
+): Promise<DownloadItem> {
+  return downloadSchema.parse(await invokeConfirmBrowserDownload(pendingId, destinationDir, fileName, connections, confirmExecutable))
+}
+
+// Releases the parked browser handoff without creating a download. Called
+// when the user cancels or closes the confirmation dialog so the backend
+// can drop the captured cookies immediately rather than waiting for TTL.
+export async function discardBrowserDownload(pendingId: string): Promise<void> {
+  await invokeDiscardBrowserDownload(pendingId)
+}
+
+export async function listPendingBrowserDownloads(): Promise<DownloadRequestEvent[]> {
+  return z.array(downloadRequestSchema).parse(await invokeListPendingBrowserDownloads())
+}
+
 export async function defaultDownloadDirectory(): Promise<string> {
   return z.string().min(1).parse(await invokeDefaultDownloadDirectory())
 }
@@ -203,6 +249,14 @@ export async function resumeDownload(id: string): Promise<void> {
 
 export async function restartDownload(id: string): Promise<void> {
   await invokeRestartDownload(id)
+}
+
+export async function removeDownloadRecord(id: string): Promise<void> {
+  await invokeRemoveDownloadRecord(id)
+}
+
+export async function deleteDownloadedFile(id: string): Promise<void> {
+  await invokeDeleteDownloadedFile(id)
 }
 
 export async function setGlobalBandwidthLimit(limit: number): Promise<void> {

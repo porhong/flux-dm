@@ -5,9 +5,10 @@ import "sync"
 type Type string
 
 const (
-	AppReady         Type = "app.ready"
-	DownloadProgress Type = "download.progress"
-	DownloadUpdated  Type = "download.updated"
+	AppReady          Type = "app.ready"
+	DownloadProgress  Type = "download.progress"
+	DownloadUpdated   Type = "download.updated"
+	DownloadRequested Type = "download.requested"
 )
 
 type Event struct {

@@ -21,12 +21,20 @@ for (let index = 0; index < directPayload.length; index += 1) {
 }
 const payloads = new Map([
   ["/fluxdm-browser-smoke.bin", { fileName: "fluxdm-browser-smoke.bin", bytes: directPayload, requests: 0 }],
-  ["/fluxdm-browser-auto.bin", { fileName: "fluxdm-browser-auto.bin", bytes: automaticPayload, requests: 0 }],
-  ["/fluxdm-browser-fallback.bin", { fileName: "fluxdm-browser-fallback.bin", bytes: automaticPayload, requests: 0 }],
+  ["/fluxdm-browser-auto.zip", { fileName: "fluxdm-browser-auto.zip", bytes: automaticPayload, requests: 0 }],
+  ["/fluxdm-browser-fallback.zip", { fileName: "fluxdm-browser-fallback.zip", bytes: automaticPayload, requests: 0 }],
 ])
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex")
 
 const transferServer = createServer((request, response) => {
+  if (request.url === "/download-page/auto") {
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }).end('<a id="download" href="/fluxdm-browser-auto.zip">Download</a>')
+    return
+  }
+  if (request.url === "/download-page/fallback") {
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }).end('<a id="download" href="/fluxdm-browser-fallback.zip">Download</a>')
+    return
+  }
   const transfer = payloads.get(request.url?.split("?", 1)[0])
   if (!transfer) {
     response.writeHead(404).end()
@@ -95,6 +103,23 @@ async function waitForCompletedTransfer(directory, fileName, expectedPayload, ow
   const expectedSHA256 = sha256(expectedPayload)
   if (completedSHA256 !== expectedSHA256) throw new Error(`Completed transfer hash mismatch for ${fileName}: ${completedSHA256}`)
   return completedSHA256
+}
+
+async function navigateAndClick(client, url) {
+  await client.call("Page.navigate", { url })
+  let bounds
+  while (Date.now() < deadline) {
+    const evaluation = await client.call("Runtime.evaluate", {
+      expression: `(() => { const link = document.querySelector("#download"); if (!link) return null; const bounds = link.getBoundingClientRect(); return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 } })()`,
+      returnByValue: true,
+    })
+    bounds = evaluation.result?.value
+    if (bounds) break
+    await sleep(50)
+  }
+  if (!bounds) throw new Error(`Download link was not available at ${url}`)
+  await client.call("Input.dispatchMouseEvent", { type: "mousePressed", x: bounds.x, y: bounds.y, button: "left", clickCount: 1 })
+  await client.call("Input.dispatchMouseEvent", { type: "mouseReleased", x: bounds.x, y: bounds.y, button: "left", clickCount: 1 })
 }
 
 async function waitForDevToolsPort() {
@@ -228,8 +253,8 @@ try {
     await client.call("Page.enable")
 
     if (mode === "unavailable") {
-      const fallbackURL = `http://127.0.0.1:${transferPort}/fluxdm-browser-fallback.bin`
-      await client.call("Page.navigate", { url: fallbackURL })
+      const fallbackURL = `http://127.0.0.1:${transferPort}/fluxdm-browser-fallback.zip`
+      await navigateAndClick(client, `http://127.0.0.1:${transferPort}/download-page/fallback`)
       let fallbackDownload
       while (Date.now() < deadline) {
         const search = await worker.call("Runtime.evaluate", {
@@ -264,7 +289,7 @@ try {
         unavailableFallback: "browser_download_completed",
         fallbackBytes: automaticPayload.length,
         fallbackSHA256,
-        fallbackRequests: payloads.get("/fluxdm-browser-fallback.bin").requests,
+        fallbackRequests: payloads.get("/fluxdm-browser-fallback.zip").requests,
         browserDownloadState: fallbackDownload.state,
         browserDownloadError: fallbackDownload.error,
       })}\n`)
@@ -279,26 +304,19 @@ try {
     const handoff = handoffEvaluation.result?.value
     if (!handoff?.accepted) throw new Error(`FluxDM rejected the extension transfer: ${JSON.stringify(handoff)}`)
     const directSHA256 = await waitForCompletedTransfer(downloadDirectory, "fluxdm-browser-smoke.bin", directPayload, "FluxDM")
-    const automaticURL = `http://127.0.0.1:${transferPort}/fluxdm-browser-auto.bin`
-    await client.call("Page.navigate", { url: automaticURL })
-    const automaticSHA256 = await waitForCompletedTransfer(downloadDirectory, "fluxdm-browser-auto.bin", automaticPayload, "FluxDM")
+    const automaticURL = `http://127.0.0.1:${transferPort}/fluxdm-browser-auto.zip`
+    await navigateAndClick(client, `http://127.0.0.1:${transferPort}/download-page/auto`)
+    const automaticSHA256 = await waitForCompletedTransfer(downloadDirectory, "fluxdm-browser-auto.zip", automaticPayload, "FluxDM")
 
-    let browserDownload
-    while (Date.now() < deadline) {
-      const search = await worker.call("Runtime.evaluate", {
-        expression: `chrome.downloads.search({}).then(items => items.filter(item => item.url === ${JSON.stringify(automaticURL)}).map(item => ({ id: item.id, state: item.state, error: item.error || "", exists: item.exists })))`,
-        awaitPromise: true,
-        returnByValue: true,
-      })
-      browserDownload = search.result?.value?.[0]
-      if (browserDownload?.state === "interrupted") break
-      await sleep(50)
-    }
-    if (browserDownload?.state !== "interrupted" || browserDownload.error !== "USER_CANCELED") {
-      throw new Error(`Browser download was not cancelled after FluxDM acceptance: ${JSON.stringify(browserDownload)}`)
-    }
+    const search = await worker.call("Runtime.evaluate", {
+      expression: `chrome.downloads.search({}).then(items => items.filter(item => item.url === ${JSON.stringify(automaticURL)}).map(item => ({ id: item.id, state: item.state, error: item.error || "", exists: item.exists })))`,
+      awaitPromise: true,
+      returnByValue: true,
+    })
+    const browserDownloadsForAutomaticURL = search.result?.value || []
+    if (browserDownloadsForAutomaticURL.length !== 0) throw new Error(`Browser created a download before FluxDM accepted the pre-click handoff: ${JSON.stringify(browserDownloadsForAutomaticURL)}`)
     const browserFiles = await readdir(browserDownloads)
-    if (browserFiles.includes("fluxdm-browser-auto.bin")) throw new Error("Browser completed its own copy after FluxDM accepted the automatic handoff")
+    if (browserFiles.includes("fluxdm-browser-auto.zip")) throw new Error("Browser completed its own copy after FluxDM accepted the pre-click handoff")
 
       process.stdout.write(`${JSON.stringify({
       browserPort: port,
@@ -309,12 +327,12 @@ try {
       transferBytes: directPayload.length,
       transferSHA256: directSHA256,
       transferRequests: payloads.get("/fluxdm-browser-smoke.bin").requests,
-      automaticInterception: "accepted_and_browser_cancelled",
+      automaticInterception: "accepted_before_browser_download",
       automaticTransferBytes: automaticPayload.length,
       automaticTransferSHA256: automaticSHA256,
-      automaticTransferRequests: payloads.get("/fluxdm-browser-auto.bin").requests,
-      browserDownloadState: browserDownload.state,
-      browserDownloadError: browserDownload.error,
+      automaticTransferRequests: payloads.get("/fluxdm-browser-auto.zip").requests,
+      browserDownloadState: "not_created",
+      browserDownloadError: "",
       })}\n`)
     }
   } finally {

@@ -7,4 +7,4 @@
 
 The manifest contains a fixed public key, so unpacked Chrome and Edge installations use the stable ID `hnemapnmnkccfommbacamppclohhcbfn`. The native host accepts only that origin.
 
-Automatic interception can be disabled globally or excluded by hostname and file extension. Explicit **Download with FluxDM** context-menu actions remain available for HTTP and HTTPS links. Cookie transfer is off by default and is used only when the user enables it.
+Pre-click handoff sends explicitly downloadable links and configured file types to FluxDM before Chrome or Edge creates a browser download. This avoids the browser's Save As/File Explorer UI for successful handoffs. Links whose downloadable nature is only revealed after site scripts, a form submission, or a redirect remain in the browser; use the explicit **Download with FluxDM** context-menu action for those links. Cookie transfer is off by default and is used only when the user enables it.

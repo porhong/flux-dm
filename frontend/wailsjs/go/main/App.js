@@ -18,6 +18,10 @@ export function ClearSiteProfileSecrets(arg1) {
   return window['go']['main']['App']['ClearSiteProfileSecrets'](arg1);
 }
 
+export function ConfirmBrowserDownload(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['ConfirmBrowserDownload'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function CreateDownload(arg1) {
   return window['go']['main']['App']['CreateDownload'](arg1);
 }
@@ -30,6 +34,10 @@ export function DeleteCategory(arg1) {
   return window['go']['main']['App']['DeleteCategory'](arg1);
 }
 
+export function DeleteDownloadedFile(arg1) {
+  return window['go']['main']['App']['DeleteDownloadedFile'](arg1);
+}
+
 export function DeleteQueue(arg1) {
   return window['go']['main']['App']['DeleteQueue'](arg1);
 }
@@ -40,6 +48,10 @@ export function DeleteSchedule(arg1) {
 
 export function DeleteSiteProfile(arg1) {
   return window['go']['main']['App']['DeleteSiteProfile'](arg1);
+}
+
+export function DiscardBrowserDownload(arg1) {
+  return window['go']['main']['App']['DiscardBrowserDownload'](arg1);
 }
 
 export function ExecutePostAction(arg1, arg2) {
@@ -66,6 +78,10 @@ export function ListDownloads() {
   return window['go']['main']['App']['ListDownloads']();
 }
 
+export function ListPendingBrowserDownloads() {
+  return window['go']['main']['App']['ListPendingBrowserDownloads']();
+}
+
 export function ListQueues() {
   return window['go']['main']['App']['ListQueues']();
 }
@@ -88,6 +104,10 @@ export function PauseDownload(arg1) {
 
 export function ProbeURL(arg1) {
   return window['go']['main']['App']['ProbeURL'](arg1);
+}
+
+export function RemoveDownloadRecord(arg1) {
+  return window['go']['main']['App']['RemoveDownloadRecord'](arg1);
 }
 
 export function RestartDownload(arg1) {

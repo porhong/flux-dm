@@ -14,17 +14,23 @@ export function ClearPrivateData():Promise<void>;
 
 export function ClearSiteProfileSecrets(arg1:string):Promise<void>;
 
+export function ConfirmBrowserDownload(arg1:string,arg2:string,arg3:string,arg4:number,arg5:boolean):Promise<application.DownloadDTO>;
+
 export function CreateDownload(arg1:application.CreateDownloadInput):Promise<application.DownloadDTO>;
 
 export function DefaultDownloadDirectory():Promise<string>;
 
 export function DeleteCategory(arg1:string):Promise<void>;
 
+export function DeleteDownloadedFile(arg1:string):Promise<void>;
+
 export function DeleteQueue(arg1:string):Promise<void>;
 
 export function DeleteSchedule(arg1:string):Promise<void>;
 
 export function DeleteSiteProfile(arg1:string):Promise<void>;
+
+export function DiscardBrowserDownload(arg1:string):Promise<void>;
 
 export function ExecutePostAction(arg1:context.Context,arg2:scheduler.Schedule):Promise<void>;
 
@@ -38,6 +44,8 @@ export function ListCategories():Promise<Array<organization.Category>>;
 
 export function ListDownloads():Promise<Array<application.DownloadDTO>>;
 
+export function ListPendingBrowserDownloads():Promise<Array<application.DownloadRequestEvent>>;
+
 export function ListQueues():Promise<Array<organization.Queue>>;
 
 export function ListScheduleHistory(arg1:number):Promise<Array<scheduler.History>>;
@@ -49,6 +57,8 @@ export function ListSiteProfiles():Promise<Array<siteprofile.Profile>>;
 export function PauseDownload(arg1:string):Promise<void>;
 
 export function ProbeURL(arg1:string):Promise<application.ProbeDTO>;
+
+export function RemoveDownloadRecord(arg1:string):Promise<void>;
 
 export function RestartDownload(arg1:string):Promise<void>;
 

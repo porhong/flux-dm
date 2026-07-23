@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -521,6 +522,91 @@ func (s *DownloadService) Get(ctx context.Context, id string) (DownloadDTO, erro
 		return DownloadDTO{}, repositoryError("get", err)
 	}
 	return downloadToDTO(task), nil
+}
+
+// RemoveRecord removes a completed download from FluxDM's history while
+// preserving the downloaded file on disk.
+func (s *DownloadService) RemoveRecord(ctx context.Context, id string) error {
+	task, err := s.completedDownload(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.repository.Delete(ctx, task.ID); err != nil {
+		return repositoryError("remove", err)
+	}
+	s.clearDownloadSecrets(ctx, task.ID)
+	return nil
+}
+
+// DeleteCompletedFile removes a completed download's file and then removes
+// its history record. The record remains available when the file cannot be
+// deleted so the user can choose to keep the record or retry the operation.
+func (s *DownloadService) DeleteCompletedFile(ctx context.Context, id string) error {
+	task, err := s.completedDownload(ctx, id)
+	if err != nil {
+		return err
+	}
+	filePath, err := completedFilePath(task)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return NewError(ErrInvalidInput, "The completed file is already missing. Remove the record instead.", err)
+		}
+		return NewError(ErrInvalidInput, "The completed file path is not safe to delete.", err)
+	}
+	if err := os.Remove(filePath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return NewError(ErrInvalidInput, "The completed file is already missing. Remove the record instead.", err)
+		}
+		return NewError(ErrInternal, "Could not delete the completed file.", err)
+	}
+	if err := s.repository.Delete(ctx, task.ID); err != nil {
+		return repositoryError("remove", err)
+	}
+	s.clearDownloadSecrets(ctx, task.ID)
+	return nil
+}
+
+func (s *DownloadService) completedDownload(ctx context.Context, id string) (download.Download, error) {
+	id, err := validateID(id)
+	if err != nil {
+		return download.Download{}, NewError(ErrInvalidInput, "Invalid download identifier.", err)
+	}
+	task, err := s.repository.Get(ctx, id)
+	if err != nil {
+		return download.Download{}, repositoryError("remove", err)
+	}
+	if task.State != download.StateCompleted {
+		return download.Download{}, NewError(ErrInvalidInput, "Only completed downloads can be removed.", nil)
+	}
+	return task, nil
+}
+
+func (s *DownloadService) clearDownloadSecrets(ctx context.Context, id string) {
+	if s.profileResolver != nil {
+		_ = s.profileResolver.ClearDownloadSecrets(ctx, id)
+	}
+}
+
+func completedFilePath(task download.Download) (string, error) {
+	filePath := filepath.Clean(task.DestinationPath)
+	if !filepath.IsAbs(filePath) || filepath.Base(filePath) != task.FileName {
+		return "", errors.New("completed file path does not match its download record")
+	}
+	directory, err := fluxfs.ValidateDestinationDirectory(filepath.Dir(filePath))
+	if err != nil {
+		return "", err
+	}
+	if filepath.Clean(filepath.Join(directory, task.FileName)) != filePath {
+		return "", errors.New("completed file is outside its destination directory")
+	}
+	info, err := os.Lstat(filePath)
+	if err != nil {
+		return "", err
+	}
+	if info.IsDir() {
+		return "", errors.New("completed file path is a directory")
+	}
+	return filePath, nil
 }
 
 func (s *DownloadService) SetGlobalBandwidthLimit(limit int64) error {
