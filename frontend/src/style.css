@@ -91,6 +91,72 @@ body {
     linear-gradient(135deg, rgb(168 217 142 / 3%), transparent 36%);
 }
 
+.app-sidebar {
+  width: 16rem;
+}
+
+.brand-mark {
+  display: block;
+  object-fit: contain;
+}
+
+.brand-mark--full {
+  width: min(100%, 11.5rem);
+  height: 2.75rem;
+  object-position: left center;
+}
+
+.brand-mark--compact {
+  display: none;
+}
+
+.brand-tagline {
+  margin: 0.55rem 0 0;
+  color: var(--color-muted-subtle);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.brand-credit {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0 0.5rem;
+}
+
+.brand-credit-label {
+  display: block;
+  color: var(--color-muted-subtle);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.brand-credit-logo {
+  display: block;
+  width: 6.5rem;
+  height: 1.875rem;
+  object-fit: contain;
+  object-position: left center;
+  opacity: 0.82;
+  transition: opacity 160ms ease;
+}
+
+.brand-credit-logo--compact {
+  display: none;
+}
+
+.brand-credit:hover .brand-credit-logo {
+  opacity: 1;
+}
+
+.brand-credit + .sidebar-status {
+  margin-top: 1.25rem;
+}
+
 .ui-panel {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -179,6 +245,64 @@ textarea {
 
   .download-progress-cell {
     display: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .app-sidebar {
+    width: 5.25rem;
+    padding-inline: 0.75rem;
+  }
+
+  .brand-lockup {
+    display: grid;
+    place-items: center;
+    padding-inline: 0;
+  }
+
+  .brand-mark--full,
+  .brand-credit-logo--full,
+  .brand-tagline,
+  .sidebar-nav-label,
+  .sidebar-status-label,
+  .sidebar-status-message,
+  .brand-credit-label {
+    display: none;
+  }
+
+  .brand-mark--compact {
+    display: block;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+  }
+
+  .app-sidebar nav button {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .sidebar-status {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem;
+  }
+
+  .sidebar-status > div {
+    margin: 0;
+  }
+
+  .brand-credit {
+    display: grid;
+    place-items: center;
+    margin-top: 0.75rem;
+    padding: 0;
+  }
+
+  .brand-credit-logo--compact {
+    display: block;
+    width: 1.75rem;
+    height: 1.75rem;
   }
 }
 

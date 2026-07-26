@@ -1,0 +1,3 @@
+# Go formatting is canonical LF on every platform. Without this, a Windows
+# checkout can make `go fmt` rewrite the complete source tree to LF in CI.
+*.go text eol=lf

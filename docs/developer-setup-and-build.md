@@ -209,7 +209,7 @@ This command requires Go, Node.js, Wails, a C compiler, and NSIS. It performs th
 5. Builds `FluxDM.exe` and `FluxDM.NativeHost.exe`.
 6. Creates an NSIS installer that includes WebView2 download handling.
 7. Rebuilds the installer with NSIS warnings treated as errors.
-8. Verifies executable version metadata and writes `build\bin\release-manifest.json` with SHA-256 hashes.
+8. Verifies executable version metadata against `wails.json`, then stages versioned publishable assets and SHA-256 hashes in `build\release`.
 
 Expected unsigned artifacts are:
 
@@ -217,7 +217,10 @@ Expected unsigned artifacts are:
 build\bin\FluxDM.exe
 build\bin\FluxDM.NativeHost.exe
 build\bin\FluxDM-amd64-installer.exe
-build\bin\release-manifest.json
+build\release\FluxDM-<version>-windows-amd64-installer.exe
+build\release\FluxDM-<version>-windows-amd64-installer.exe.sha256
+build\release\SHA256SUMS.txt
+build\release\release-manifest.json
 ```
 
 To also independently inspect the contents of the installer, provide a full 7-Zip path:
@@ -228,7 +231,7 @@ To also independently inspect the contents of the installer, provide a full 7-Zi
 
 ### Signed production candidates
 
-Production releases require an organization-validated Authenticode certificate installed through a protected key provider, plus an RFC 3161 timestamp service. Never put a certificate private key or signing secret in this repository, source files, scripts, or logs.
+Production releases require an organization-validated Authenticode certificate installed through a protected key provider, plus an RFC 3161 timestamp service. Never put a certificate private key or signing secret in this repository, source files, scripts, or logs. The production workflow receives its thumbprint and timestamp URL only from the approved GitHub `release` environment; it runs exclusively on the `self-hosted`, `windows`, `fluxdm-signing` runner.
 
 Example signing invocation:
 
@@ -239,7 +242,9 @@ Example signing invocation:
   -SignToolPath 'C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe' `
   -MakeNSISPath 'C:\Program Files (x86)\NSIS\makensis.exe' `
   -GCCPath 'C:\msys64\ucrt64\bin\gcc.exe' `
-  -SevenZipPath 'C:\Program Files\7-Zip\7z.exe'
+  -SevenZipPath 'C:\Program Files\7-Zip\7z.exe' `
+  -TimestampUrl 'https://timestamp.digicert.com' `
+  -Version '1.0.0'
 ```
 
 The script signs both executables, rebuilds the installer so its embedded uninstaller and final installer are signed, and verifies signatures. `-AllowUntimestampedTestSignature` is only for an ephemeral local test certificate when no timestamp URL is supplied; it is never valid for a published release. See [`docs/release/code-signing.md`](release/code-signing.md) and [`docs/release/windows-smoke-checklist.md`](release/windows-smoke-checklist.md) before releasing anything.

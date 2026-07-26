@@ -404,7 +404,10 @@ func TestStartupRecoveryResumesPersistedSegmentsWithoutCorruption(t *testing.T) 
 func TestPauseResumeOneHundredCyclesWithoutLeaks(t *testing.T) {
 	baseline := runtime.NumGoroutine()
 	server := testserver.New()
+	defer server.Close()
 	service, database, _ := newTestService(t, server)
+	defer service.Close()
+	defer database.Close()
 	created, err := service.Create(context.Background(), application.CreateDownloadInput{URL: server.URL("/pause-loop"), DestinationDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
@@ -443,7 +446,6 @@ func TestPauseResumeOneHundredCyclesWithoutLeaks(t *testing.T) {
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
-	server.Close()
 	runtime.GC()
 	time.Sleep(100 * time.Millisecond)
 	if current := runtime.NumGoroutine(); current > baseline+10 {

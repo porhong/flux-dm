@@ -27,7 +27,7 @@ jobs:
         shell: pwsh
         run: |
           go fmt ./...
-          if (git status --short) { throw "Go files are not formatted" }
+          git diff --exit-code -- '*.go'
       - run: go vet ./...
       - run: go test ./...
       - run: go test -race ./...
@@ -76,6 +76,14 @@ jobs:
       - run: npm ci
         working-directory: frontend
       - run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+      - name: Install pinned NSIS compiler
+        shell: pwsh
+        run: |
+          choco install nsis.install --version=3.12.0 --yes --no-progress --limit-output
+          $nsisPath = 'C:\Program Files (x86)\NSIS'
+          if (-not (Test-Path -LiteralPath (Join-Path $nsisPath 'makensis.exe'))) { throw "NSIS installation did not provide makensis.exe at $nsisPath" }
+          Add-Content -Encoding utf8 $env:GITHUB_PATH $nsisPath
+          & (Join-Path $nsisPath 'makensis.exe') /VERSION
       - run: wails build
       - run: go build -trimpath -o build/bin/FluxDM.NativeHost.exe ./cmd/fluxdm-native-host
       - run: wails build -nsis -s -skipbindings -trimpath -webview2 download
@@ -89,3 +97,11 @@ jobs:
             build/bin/FluxDM.exe
             build/bin/FluxDM.NativeHost.exe
             build/bin/FluxDM-amd64-installer.exe
+
+  release-automation:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test release version and asset contracts
+        shell: pwsh
+        run: ./scripts/test-release-automation.ps1

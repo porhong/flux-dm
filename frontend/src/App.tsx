@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { ArrowDownToLine, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { EventsOff, EventsOn } from "../wailsjs/runtime/runtime"
 
 import { Badge } from "@/components/ui/badge"
@@ -86,15 +86,11 @@ export default function App() {
   return (
     <TooltipProvider delayDuration={250}>
       <div className="matcha-shell flex min-h-screen bg-canvas text-foreground">
-        <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-sidebar/95 p-4">
-          <div className="mb-8 flex items-center gap-3 px-2 pt-2">
-            <div className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/15">
-              <ArrowDownToLine className="size-5" strokeWidth={2.5} />
-            </div>
-            <div>
-              <div className="text-lg font-bold tracking-tight">FluxDM</div>
-              <div className="text-xs text-slate-500">Windows download manager</div>
-            </div>
+        <aside className="app-sidebar flex shrink-0 flex-col border-r border-border bg-sidebar/95 p-4">
+          <div className="brand-lockup mb-8 px-2 pt-2">
+            <img className="brand-mark brand-mark--full" src="/FluxDM-Logo-full.png" alt="FluxDM" />
+            <img className="brand-mark brand-mark--compact" src="/FluxDM-Logo.png" alt="FluxDM" />
+            <p className="brand-tagline">Windows download manager</p>
           </div>
 
           <nav className="space-y-1" aria-label="Main navigation">
@@ -109,20 +105,28 @@ export default function App() {
                   onClick={() => setActiveSection(item.id)}
                 >
                   <item.icon className="size-4" />
-                  {item.label}
+                  <span className="sidebar-nav-label">{item.label}</span>
                 </button>
               )
             })}
           </nav>
 
-          <div className="mt-auto rounded-xl border border-border bg-surface p-3">
-            <div className="mb-2 flex items-center justify-between text-xs">
-              <span className="text-slate-400">Backend</span>
-              <Badge variant={error ? "destructive" : health ? "default" : "secondary"}>
-                {error ? "Offline" : health ? "Healthy" : "Checking"}
-              </Badge>
+          <div className="mt-auto">
+            <footer className="brand-credit" aria-label="Powered by BadbotDev">
+              <span className="brand-credit-label">Powered by</span>
+              <img className="brand-credit-logo brand-credit-logo--full" src="/BadbotDev-Logo.png" alt="BadbotDev" />
+              <img className="brand-credit-logo brand-credit-logo--compact" src="/BadbotDev-Logo-symbol.png" alt="BadbotDev" />
+            </footer>
+
+            <div className="sidebar-status rounded-xl border border-border bg-surface p-3">
+              <div className="mb-2 flex items-center justify-between text-xs">
+                <span className="sidebar-status-label text-slate-400">Backend</span>
+                <Badge variant={error ? "destructive" : health ? "default" : "secondary"}>
+                  {error ? "Offline" : health ? "Healthy" : "Checking"}
+                </Badge>
+              </div>
+              <p className="sidebar-status-message truncate text-xs text-slate-500" title={readyMessage}>{readyMessage}</p>
             </div>
-            <p className="truncate text-xs text-slate-500" title={readyMessage}>{readyMessage}</p>
           </div>
         </aside>
 

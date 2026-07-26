@@ -1,0 +1,69 @@
+name: signed Windows release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: [self-hosted, windows, fluxdm-signing]
+    environment: release
+    env:
+      FLUXDM_CERT_THUMBPRINT: ${{ secrets.FLUXDM_CERT_THUMBPRINT }}
+      FLUXDM_TIMESTAMP_URL: ${{ secrets.FLUXDM_TIMESTAMP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install the pinned Wails CLI
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          Join-Path (go env GOPATH) 'bin' | Add-Content -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Validate release tag and product version
+        id: version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $version = .\scripts\validate-release-version.ps1 -Tag $env:RELEASE_TAG
+          "version=$version" | Add-Content -Encoding utf8 $env:GITHUB_OUTPUT
+
+      - name: Check release automation contracts
+        shell: pwsh
+        run: .\scripts\test-release-automation.ps1
+
+      - name: Build, sign, and verify release assets
+        shell: pwsh
+        run: |
+          .\scripts\build-release.ps1 `
+            -Sign `
+            -Version '${{ steps.version.outputs.version }}' `
+            -SevenZipPath 'C:\Program Files\7-Zip\7z.exe'
+
+      - name: Publish signed installer release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: |
+            build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe
+            build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe.sha256
+            build/release/SHA256SUMS.txt
+            build/release/release-manifest.json

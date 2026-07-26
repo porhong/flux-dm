@@ -7,6 +7,7 @@ param(
   [switch]$RequireRunning
 )
 $ErrorActionPreference = 'Stop'
+$expectedVersion = & "$PSScriptRoot\get-product-version.ps1"
 $installed = (Resolve-Path -LiteralPath $InstallDir).Path
 $appPath = Join-Path $installed 'FluxDM.exe'
 $nativeHostPath = Join-Path $installed 'FluxDM.NativeHost.exe'
@@ -40,7 +41,7 @@ foreach ($key in $nativeKeys) {
 }
 
 $extensionManifest = Get-Content -Raw -Encoding utf8 -LiteralPath $extensionManifestPath | ConvertFrom-Json
-if ($extensionManifest.manifest_version -ne 3 -or $extensionManifest.version -ne '1.0.0' -or -not $extensionManifest.key) { throw 'Installed extension identity/version contract is invalid.' }
+if ($extensionManifest.manifest_version -ne 3 -or $extensionManifest.version -ne $expectedVersion -or -not $extensionManifest.key) { throw 'Installed extension identity/version contract is invalid.' }
 $appHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $appPath).Hash
 $nativeHostHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $nativeHostPath).Hash
 if ($ExpectedAppSHA256 -and $appHash -ne $ExpectedAppSHA256.Trim().ToUpperInvariant()) { throw 'Installed FluxDM.exe hash does not match the expected release input.' }

@@ -793,7 +793,12 @@ func (s *DownloadService) worker() {
 		s.process(runCtx, job, control)
 		cancel()
 		s.mu.Lock()
-		delete(s.running, job.id)
+		// A paused run removes its own control before it publishes StatePaused so
+		// Resume cannot be lost in the small window before this worker unwinds.
+		// Do not remove a newer control that may already be running the resumed job.
+		if s.running[job.id] == control {
+			delete(s.running, job.id)
+		}
 		s.queueRunning[job.queueID]--
 		s.mu.Unlock()
 		s.signalWorkers()
@@ -944,7 +949,7 @@ func (s *DownloadService) process(ctx context.Context, job downloadJob, control 
 		switch {
 		case intent == intentPause:
 			_ = task.Transition(download.StatePausing)
-			s.finishPause(context.WithoutCancel(ctx), task)
+			s.finishPause(context.WithoutCancel(ctx), task, control)
 		case intent == intentCancel:
 			s.finishCancel(context.WithoutCancel(ctx), task.ID)
 		case s.ctx.Err() != nil:
@@ -989,7 +994,7 @@ func (s *DownloadService) handlePreEngineError(ctx context.Context, task *downlo
 	}
 }
 
-func (s *DownloadService) finishPause(ctx context.Context, task download.Download) {
+func (s *DownloadService) finishPause(ctx context.Context, task download.Download, control *runControl) {
 	if err := reconcileTemporaryFile(&task); err != nil {
 		s.finishWithError(ctx, &task, err)
 		return
@@ -1004,6 +1009,11 @@ func (s *DownloadService) finishPause(ctx context.Context, task download.Downloa
 	}
 	task.LastError = ""
 	if err := s.repository.Save(ctx, task); err == nil {
+		s.mu.Lock()
+		if s.running[task.ID] == control {
+			delete(s.running, task.ID)
+		}
+		s.mu.Unlock()
 		s.publishUpdated(downloadToDTO(task))
 	}
 }

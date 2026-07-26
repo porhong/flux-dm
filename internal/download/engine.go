@@ -80,6 +80,9 @@ func (e *Engine) SetGlobalBandwidthLimit(bytesPerSecond int64) error {
 }
 
 func (e *Engine) Download(ctx context.Context, task Download, onProgress func(Progress)) error {
+	if ctx.Err() != nil {
+		return ErrCancelled
+	}
 	requestURL := task.FinalURL
 	if requestURL == "" {
 		requestURL = task.URL
@@ -109,6 +112,9 @@ func (e *Engine) Download(ctx context.Context, task Download, onProgress func(Pr
 			_ = file.Close()
 		}
 	}()
+	if ctx.Err() != nil {
+		return ErrCancelled
+	}
 	if task.TotalBytes >= 0 && completedBytes(task.Segments) == 0 {
 		if err := file.Truncate(task.TotalBytes); err != nil {
 			return fmt.Errorf("preallocate temporary file: %w", err)

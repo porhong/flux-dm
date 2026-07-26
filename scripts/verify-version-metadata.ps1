@@ -3,7 +3,7 @@ param(
   [Parameter(Mandatory)]
   [string[]]$Path,
 
-  [string]$Version = '1.0.0',
+  [string]$Version,
 
   [string]$ProductName = 'FluxDM',
 
@@ -11,6 +11,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+if (-not $Version) {
+  $Version = & "$PSScriptRoot\get-product-version.ps1"
+} else {
+  & "$PSScriptRoot\get-product-version.ps1" -ExpectedVersion $Version | Out-Null
+}
 
 foreach ($item in $Path) {
   $resolved = (Resolve-Path -LiteralPath $item).Path

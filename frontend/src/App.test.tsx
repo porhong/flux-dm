@@ -74,6 +74,12 @@ describe("App", () => {
   it("renders the foundation shell and reports backend health", async () => {
     render(<App />)
 
+    expect(screen.getAllByRole("img", { name: "FluxDM" })[0]).toHaveAttribute("src", "/FluxDM-Logo-full.png")
+    expect(screen.getAllByRole("img", { name: "BadbotDev" })[0]).toHaveAttribute("src", "/BadbotDev-Logo.png")
+    const credit = document.querySelector<HTMLElement>('footer[aria-label="Powered by BadbotDev"]')
+    const status = screen.getByText("Backend").closest<HTMLElement>(".sidebar-status")
+    if (!credit || !status) throw new Error("Sidebar footer content is missing")
+    expect(credit.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole("heading", { name: "Downloads" })).toBeInTheDocument()
     expect(await screen.findByText("Healthy")).toBeInTheDocument()
     expect(healthCheckMock).toHaveBeenCalledOnce()

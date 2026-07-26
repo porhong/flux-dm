@@ -40,6 +40,22 @@ func TestEngineSegmentedDownloadsMatchSHA256(t *testing.T) {
 	}
 }
 
+func TestEngineCancelledBeforeFileIOLeavesNoTemporaryFile(t *testing.T) {
+	server := testserver.New()
+	defer server.Close()
+	task := segmentedTask(t, server.URL("/file"), t.TempDir(), int64(len(server.Payload)), 4)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := download.NewEngine(server.HTTP.Client()).Download(ctx, task, nil)
+	if !errors.Is(err, download.ErrCancelled) {
+		t.Fatalf("expected cancellation, got %v", err)
+	}
+	if _, statErr := os.Stat(task.TempPath); !os.IsNotExist(statErr) {
+		t.Fatalf("cancelled download created temporary file: %v", statErr)
+	}
+}
+
 func TestEngineDynamicallySplitsSlowTailWithoutCorruption(t *testing.T) {
 	payload := deterministicPayload(8 * 1024 * 1024)
 	server := newPayloadServer(payload, 6*1024*1024)

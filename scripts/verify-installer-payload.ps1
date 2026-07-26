@@ -5,10 +5,12 @@ param(
   [string]$AppPath,
   [string]$NativeHostPath,
   [string]$ExtensionPath,
+  [string]$Version,
   [switch]$RequireSignatures
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+if (-not $Version) { $Version = & "$PSScriptRoot\get-product-version.ps1" } else { & "$PSScriptRoot\get-product-version.ps1" -ExpectedVersion $Version | Out-Null }
 if (-not $InstallerPath) { $InstallerPath = Join-Path $root 'build\bin\FluxDM-amd64-installer.exe' }
 if (-not $AppPath) { $AppPath = Join-Path $root 'build\bin\FluxDM.exe' }
 if (-not $NativeHostPath) { $NativeHostPath = Join-Path $root 'build\bin\FluxDM.NativeHost.exe' }
@@ -66,7 +68,7 @@ try {
   }
 
   $manifest = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $packagedExtension 'manifest.json') | ConvertFrom-Json
-  if ($manifest.manifest_version -ne 3 -or $manifest.version -ne '1.0.0' -or -not $manifest.key) { throw 'Packaged extension identity/version contract is invalid.' }
+  if ($manifest.manifest_version -ne 3 -or $manifest.version -ne $Version -or -not $manifest.key) { throw 'Packaged extension identity/version contract is invalid.' }
 
   $bootstrapPath = Join-Path $temporaryRoot '$PLUGINSDIR\webview2bootstrapper\MicrosoftEdgeWebview2Setup.exe'
   $bootstrapSignature = Assert-ValidSignature $bootstrapPath 'WebView2 bootstrapper'
