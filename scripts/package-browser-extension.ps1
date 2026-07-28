@@ -11,8 +11,10 @@ $root = Split-Path -Parent $PSScriptRoot
 if (-not $ExtensionPath) { $ExtensionPath = Join-Path $root 'browser-extension' }
 
 function Assert-ContainedPath([string]$Root, [string]$Candidate, [string]$Message) {
-  $rootPrefix = $Root.TrimEnd('\') + '\'
-  if (-not $Candidate.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw $Message }
+  $rootURI = [Uri]([IO.Path]::GetFullPath($Root).TrimEnd('\') + '\')
+  $candidateURI = [Uri]([IO.Path]::GetFullPath($Candidate))
+  $relativePath = $rootURI.MakeRelativeUri($candidateURI).ToString()
+  if ($relativePath -eq '..' -or $relativePath.StartsWith('../', [StringComparison]::Ordinal) -or $relativePath -match '^[a-z][a-z0-9+.-]*:') { throw $Message }
 }
 
 if ($ExpectedVersion -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
