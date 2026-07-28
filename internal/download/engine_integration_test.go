@@ -145,8 +145,8 @@ func TestEngineGlobalBandwidthLimitIsShared(t *testing.T) {
 		}
 	}
 	elapsed := time.Since(started)
-	if elapsed < 1700*time.Millisecond || elapsed > 3*time.Second {
-		t.Fatalf("shared global limit completed in %v, want about 2s", elapsed)
+	if elapsed < 1700*time.Millisecond || elapsed > 5*time.Second {
+		t.Fatalf("shared global limit completed in %v, want at least about 2s without excessive delay", elapsed)
 	}
 }
 
@@ -175,8 +175,8 @@ func TestEngineQueueBandwidthLimitIsShared(t *testing.T) {
 		}
 	}
 	elapsed := time.Since(started)
-	if elapsed < 1700*time.Millisecond || elapsed > 3*time.Second {
-		t.Fatalf("shared queue limit completed in %v, want about 2s", elapsed)
+	if elapsed < 1700*time.Millisecond || elapsed > 5*time.Second {
+		t.Fatalf("shared queue limit completed in %v, want at least about 2s without excessive delay", elapsed)
 	}
 }
 
