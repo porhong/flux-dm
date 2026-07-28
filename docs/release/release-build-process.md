@@ -1,6 +1,6 @@
 # Production release build process
 
-This runbook is the authoritative procedure for producing and publishing a FluxDM Windows release. It covers the signed NSIS installer build from version preparation through post-publication checks.
+This runbook is the authoritative procedure for producing and publishing a FluxDM Windows release. It covers both the unsigned testing channel and the signed production NSIS installer build.
 
 Only the signed installer is a release artifact. Do not publish `FluxDM.exe` or `FluxDM.NativeHost.exe` separately: installation is required to register browser integration and create shortcuts.
 
@@ -10,12 +10,32 @@ Only the signed installer is a release artifact. Do not publish `FluxDM.exe` or 
 | --- | --- |
 | Release tag | A protected, immutable `vX.Y.Z` tag with strict numeric semver only. |
 | Product version | `wails.json` `info.productVersion` must be exactly `X.Y.Z`. |
-| Publishing workflow | `.github/workflows/release.yml`, triggered only by pushed `v*` tags. |
+| Production publishing workflow | `.github/workflows/release.yml`, triggered only by pushed `vX.Y.Z` tags. |
 | Signing boundary | The approved `release` GitHub Environment and the `self-hosted`, `windows`, `fluxdm-signing` runner. |
 | Published assets | Versioned installer, its `.sha256`, `SHA256SUMS.txt`, and `release-manifest.json`. |
-| Unsigned artifacts | Development or CI only; never publish them. |
+| Release-candidate workflow | `.github/workflows/rc-release.yml`, triggered by `vX.Y.Z-rc.N` tags and always published as a prerelease. |
+| Unsigned artifacts | May be published only through the explicit release-candidate channel; they are never production releases. |
 
-The workflow validates the tag strictly before it builds. A tag such as `v1.2`, `v01.2.3`, `v1.2.3-rc.1`, or a tag that does not match `wails.json` is rejected.
+The production workflow validates the tag strictly before it builds. A tag such as `v1.2`, `v01.2.3`, `v1.2.3-rc.1`, or a tag that does not match `wails.json` is rejected.
+
+## Unsigned release candidates while signing is unavailable
+
+Use this channel only to give testers an installer before a trusted signing certificate or signing service is available. It is deliberately separate from the protected production path.
+
+1. Update and merge `wails.json` to the desired numeric product version `X.Y.Z`.
+2. Create a new release-candidate tag with a positive sequence number. Do not reuse a release-candidate tag:
+
+   ```powershell
+   git tag vX.Y.Z-rc.N <merged-commit-sha>
+   git push origin vX.Y.Z-rc.N
+   ```
+
+3. The **unsigned Windows release candidate** workflow runs on GitHub-hosted `windows-2022`, installs the build tools, executes the complete validation suite, builds the installer, validates its payload hashes, and publishes a GitHub **prerelease**.
+4. Share only the installer, checksum files, and the explicit warning that it is unsigned. Testers must compare `Get-FileHash -Algorithm SHA256` output with `SHA256SUMS.txt` before running it.
+
+The public asset is named `FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe`. Its `release-manifest.json` records the release-candidate version, the packaged `X.Y.Z` product version, and `signed: false`. Windows SmartScreen or an unknown-publisher warning is expected; a checksum confirms the downloaded bytes but does **not** establish publisher identity. Do not present this as a production, trusted, or signed release.
+
+This release-candidate workflow has no `release` environment, certificate thumbprint, timestamp endpoint, or self-hosted signing runner. It never publishes standalone executables. When signing becomes available, create a new final `vX.Y.Z` tag for the signed production workflow; do not promote or rename an unsigned release-candidate tag.
 
 ## One-time production setup
 
@@ -78,6 +98,11 @@ The first command prints `X.Y.Z` only when the tag and `wails.json` match. The s
 Run these commands from the repository root before requesting a production tag. Run the npm commands from `frontend`.
 
 ```powershell
+Push-Location frontend
+npm ci
+npm run build
+Pop-Location
+
 go fmt ./...
 go vet ./...
 go test ./...

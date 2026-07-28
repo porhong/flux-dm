@@ -1,15 +1,23 @@
 [CmdletBinding()]
-param([switch]$Sign,[string]$Version,[string]$CertificateThumbprint,[string]$SignToolPath='signtool.exe',[string]$MakeNSISPath='makensis.exe',[string]$GCCPath='gcc.exe',[string]$SevenZipPath,[string]$TimestampUrl,[string]$ReleaseOutputDirectory,[switch]$AllowUntimestampedTestSignature)
+param([switch]$Sign,[string]$Version,[string]$ReleaseVersion,[string]$CertificateThumbprint,[string]$SignToolPath='signtool.exe',[string]$MakeNSISPath='makensis.exe',[string]$GCCPath='gcc.exe',[string]$SevenZipPath,[string]$TimestampUrl,[string]$ReleaseOutputDirectory,[switch]$AllowUntimestampedTestSignature)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 Push-Location $root
 try{
   $releaseVersion=& "$PSScriptRoot\get-product-version.ps1" -ExpectedVersion $Version
+  if(-not $ReleaseVersion){$ReleaseVersion=$releaseVersion}
+  if($ReleaseVersion -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.[1-9][0-9]*)?$'){throw "-ReleaseVersion must be X.Y.Z or X.Y.Z-rc.N: '$ReleaseVersion'"}
+  if(($ReleaseVersion -replace '-rc\.[1-9][0-9]*$', '') -ne $releaseVersion){throw "-ReleaseVersion '$ReleaseVersion' does not match product version '$releaseVersion'."}
+  if($Sign -and $ReleaseVersion -ne $releaseVersion){throw 'Signed releases must use the exact product version; release-candidate versions cannot be signed through this workflow.'}
   if(-not $ReleaseOutputDirectory){$ReleaseOutputDirectory=Join-Path $root 'build\release'}
   $versionOutput=& go version
   if($versionOutput -notmatch 'go([0-9]+\.[0-9]+\.[0-9]+)'){throw "Could not parse Go version: $versionOutput"};if([version]$Matches[1] -lt [version]'1.26.5'){throw "Go 1.26.5 or newer is required; found $versionOutput"}
   $makeNsisCommand=(Get-Command $MakeNSISPath -ErrorAction Stop).Source;$env:PATH="$(Split-Path -Parent $makeNsisCommand);$env:PATH"
   $gccCommand=(Get-Command $GCCPath -ErrorAction Stop).Source;$env:PATH="$(Split-Path -Parent $gccCommand);$env:PATH"
+  # main.go embeds dist/, so generate it before any Go command resolves the
+  # package graph. A clean GitHub runner does not contain generated assets.
+  Push-Location frontend
+  try{npm ci;if($LASTEXITCODE){throw 'npm ci failed'};npm run lint;if($LASTEXITCODE){throw 'frontend lint failed'};npm run typecheck;if($LASTEXITCODE){throw 'frontend typecheck failed'};npm run test;if($LASTEXITCODE){throw 'frontend tests failed'};npm audit --audit-level=high;if($LASTEXITCODE){throw 'npm audit failed'};npm run build;if($LASTEXITCODE){throw 'frontend build failed'}}finally{Pop-Location}
   go fmt ./...;if($LASTEXITCODE){throw 'go fmt failed'}
   go vet ./...;if($LASTEXITCODE){throw 'go vet failed'}
   go test ./...;if($LASTEXITCODE){throw 'go test failed'}
@@ -17,8 +25,6 @@ try{
   go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...;if($LASTEXITCODE){throw 'Go vulnerability scan failed'}
   $originalCGO=$env:CGO_ENABLED
   try{$env:CGO_ENABLED='1';go test -race ./...;if($LASTEXITCODE){throw 'go race test failed'}}finally{$env:CGO_ENABLED=$originalCGO}
-  Push-Location frontend
-  try{npm ci;if($LASTEXITCODE){throw 'npm ci failed'};npm run lint;if($LASTEXITCODE){throw 'frontend lint failed'};npm run typecheck;if($LASTEXITCODE){throw 'frontend typecheck failed'};npm run test;if($LASTEXITCODE){throw 'frontend tests failed'};npm audit --audit-level=high;if($LASTEXITCODE){throw 'npm audit failed'}}finally{Pop-Location}
   node --check browser-extension\service-worker.js;if($LASTEXITCODE){throw 'browser extension syntax check failed'}
   node --check browser-extension\options.js;if($LASTEXITCODE){throw 'browser extension options syntax check failed'}
   node --check scripts\browser-extension-smoke-driver.mjs;if($LASTEXITCODE){throw 'browser extension smoke driver syntax check failed'}
@@ -35,6 +41,6 @@ try{
   $installer=Get-ChildItem build\bin\FluxDM-amd64-installer.exe -ErrorAction Stop
   $artifacts=@($app,$nativeHost,$installer.FullName);if($Sign){& "$PSScriptRoot\verify-release.ps1" -Path $artifacts -SignToolPath $SignToolPath}
   if($SevenZipPath){& "$PSScriptRoot\verify-installer-payload.ps1" -InstallerPath $installer.FullName -SevenZipPath $SevenZipPath -AppPath $app -NativeHostPath $nativeHost -ExtensionPath (Join-Path $root 'browser-extension') -Version $releaseVersion -RequireSignatures:$Sign}
-  & "$PSScriptRoot\stage-release-assets.ps1" -Version $releaseVersion -InstallerPath $installer.FullName -OutputDirectory $ReleaseOutputDirectory -Signed:$Sign
+  & "$PSScriptRoot\stage-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $releaseVersion -InstallerPath $installer.FullName -OutputDirectory $ReleaseOutputDirectory -Signed:$Sign
   Write-Host "Release assets created in $ReleaseOutputDirectory"
 }finally{Pop-Location}

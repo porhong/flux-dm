@@ -3,6 +3,8 @@ param(
   [Parameter(Mandatory)]
   [string]$Version,
 
+  [string]$ProductVersion,
+
   [Parameter(Mandatory)]
   [string]$InstallerPath,
 
@@ -12,7 +14,14 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-& "$PSScriptRoot\get-product-version.ps1" -ExpectedVersion $Version | Out-Null
+if ($Version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.[1-9][0-9]*)?$') {
+  throw "Version must be X.Y.Z or X.Y.Z-rc.N: '$Version'"
+}
+if (-not $ProductVersion) { $ProductVersion = $Version -replace '-rc\.[1-9][0-9]*$', '' }
+if (($Version -replace '-rc\.[1-9][0-9]*$', '') -ne $ProductVersion) {
+  throw "Version '$Version' does not match product version '$ProductVersion'."
+}
+& "$PSScriptRoot\get-product-version.ps1" -ExpectedVersion $ProductVersion | Out-Null
 $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $output | Out-Null
@@ -30,6 +39,7 @@ $sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $releaseInstaller).Hash.T
 
 [ordered]@{
   version = $Version
+  productVersion = $ProductVersion
   signed = [bool]$Signed
   generatedAt = (Get-Date).ToUniversalTime().ToString('o')
   artifacts = @(

@@ -1,0 +1,4 @@
+# Custom labels used by the dedicated production signing runner.
+self-hosted-runner:
+  labels:
+    - fluxdm-signing

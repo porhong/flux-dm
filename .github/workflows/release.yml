@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   release:
+    # Release-candidate tags (vX.Y.Z-rc.N) are handled by rc-release.yml and
+    # must never enter the protected signing boundary.
+    if: ${{ !contains(github.ref_name, '-') }}
     runs-on: [self-hosted, windows, fluxdm-signing]
     environment: release
     env:

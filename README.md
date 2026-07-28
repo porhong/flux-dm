@@ -71,6 +71,11 @@ Chrome Stable intentionally restricts command-line loading of unpacked extension
 ## Validation
 
 ```powershell
+Push-Location frontend
+npm ci
+npm run build
+Pop-Location
+
 go fmt ./...
 go vet ./...
 go test ./...
@@ -93,7 +98,7 @@ Use `scripts\verify-installed-layout.ps1` to validate installed files, exact nat
 
 ## Releases
 
-Download FluxDM from the repository's [GitHub Releases](../../releases) page. The signed Windows installer is the only supported release download because it installs browser integration and shortcuts; standalone executables are intentionally not published.
+Download FluxDM from the repository's [GitHub Releases](../../releases) page. The installer is the only supported release download because it installs browser integration and shortcuts; standalone executables are intentionally not published.
 
 For a release `X.Y.Z`, download `FluxDM-X.Y.Z-windows-amd64-installer.exe` and either its adjacent `.sha256` file or `SHA256SUMS.txt`. Verify it in PowerShell before installing:
 
@@ -104,7 +109,9 @@ Get-Content .\SHA256SUMS.txt
 
 The reported hash must match the entry for the installer. `release-manifest.json` is the corresponding machine-readable asset manifest.
 
-Production releases are created by updating `wails.json` to the intended `X.Y.Z` version, merging that change, and pushing the matching protected `vX.Y.Z` tag. The tag workflow waits for approval of the protected `release` environment, then runs on the dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. That runner must have Go, Node.js, Wails, MinGW/GCC, NSIS, Windows SDK `signtool`, 7-Zip, and access to the hardware- or OS-backed Authenticode certificate. Its certificate thumbprint and RFC 3161 timestamp URL are protected environment configuration; no PFX or private key is stored in GitHub or this repository. Unsigned builds are CI-only and are never published.
+Until Authenticode signing is available, testers can use an **unsigned release candidate**. Update and merge the intended `X.Y.Z` product version, then push a new `vX.Y.Z-rc.N` tag (for example, `v1.0.0-rc.1`). This creates a clearly labelled GitHub prerelease from a GitHub-hosted runner with the versioned installer and SHA-256 files, but it does not use signing secrets or a certificate. Verify the checksum before installation; Windows may display a SmartScreen or unknown-publisher warning. Release candidates are not production releases and must not be announced as trusted/signed downloads.
+
+Production releases are created by pushing the matching protected `vX.Y.Z` tag. The signed workflow waits for approval of the protected `release` environment, then runs on the dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. That runner must have Go, Node.js, Wails, MinGW/GCC, NSIS, Windows SDK `signtool`, 7-Zip, and access to the hardware- or OS-backed Authenticode certificate. Its certificate thumbprint and RFC 3161 timestamp URL are protected environment configuration; no PFX or private key is stored in GitHub or this repository.
 
 FluxDM is available under the [MIT License](LICENSE).
 

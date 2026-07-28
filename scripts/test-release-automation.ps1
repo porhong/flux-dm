@@ -26,6 +26,10 @@ try {
   Assert-Equal $validatedVersion '1.2.3' 'Valid release tag must resolve to the product version.'
   Assert-Throws { & "$PSScriptRoot\validate-release-version.ps1" -Tag 'v1.2' -WailsConfig $wailsConfig } 'Non-semver release tags must be rejected.'
   Assert-Throws { & "$PSScriptRoot\validate-release-version.ps1" -Tag 'v1.2.4' -WailsConfig $wailsConfig } 'Tag/product version mismatches must be rejected.'
+  $validatedRCVersion = & "$PSScriptRoot\validate-rc-release-version.ps1" -Tag 'v1.2.3-rc.4' -WailsConfig $wailsConfig
+  Assert-Equal $validatedRCVersion '1.2.3-rc.4' 'Valid release-candidate tag must resolve to its public release version.'
+  Assert-Throws { & "$PSScriptRoot\validate-rc-release-version.ps1" -Tag 'v1.2.3-rc.0' -WailsConfig $wailsConfig } 'Release-candidate sequence zero must be rejected.'
+  Assert-Throws { & "$PSScriptRoot\validate-rc-release-version.ps1" -Tag 'v1.2.4-rc.1' -WailsConfig $wailsConfig } 'Release-candidate product-version mismatches must be rejected.'
 
   $installer = Join-Path $temporaryRoot 'installer.exe'
   $privateSigningSentinel = 'do-not-publish-private-signing-data'
@@ -43,9 +47,27 @@ try {
   Assert-True ($manifest -notmatch [regex]::Escape($privateSigningSentinel)) 'Release manifest must not contain private signing data.'
   Assert-True ($manifest -match [regex]::Escape($installerName)) 'Release manifest does not identify the versioned installer.'
 
+  $rcOutput = Join-Path $temporaryRoot 'release-candidate'
+  $rcReleaseVersion = "$repositoryVersion-rc.4"
+  $rcStaged = & "$PSScriptRoot\stage-release-assets.ps1" -Version $rcReleaseVersion -ProductVersion $repositoryVersion -InstallerPath $installer -OutputDirectory $rcOutput | ConvertFrom-Json
+  Assert-Equal (Split-Path -Leaf $rcStaged.installer) "FluxDM-$rcReleaseVersion-windows-amd64-installer.exe" 'Release-candidate installer asset name is incorrect.'
+  $rcManifest = Get-Content -Raw -Encoding utf8 -LiteralPath $rcStaged.manifest | ConvertFrom-Json
+  Assert-Equal $rcManifest.version $rcReleaseVersion 'Release-candidate manifest must identify the public release version.'
+  Assert-Equal $rcManifest.productVersion $repositoryVersion 'Release-candidate manifest must identify the packaged product version.'
+  Assert-True (-not $rcManifest.signed) 'Unsigned release-candidate manifest must report signed=false.'
+  Assert-Throws { & "$PSScriptRoot\stage-release-assets.ps1" -Version '1.2.4-rc.1' -ProductVersion '1.2.3' -InstallerPath $installer -OutputDirectory (Join-Path $temporaryRoot 'invalid-release-candidate') } 'Release-candidate asset version/product mismatches must be rejected.'
+
   $workflow = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root '.github\workflows\release.yml')
   foreach ($required in @('self-hosted', 'windows', 'fluxdm-signing', 'environment: release', 'generate_release_notes: true', 'FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe', 'SHA256SUMS.txt', 'release-manifest.json')) {
     Assert-True ($workflow.Contains($required)) "Release workflow is missing required contract: $required"
+  }
+
+  $rcWorkflow = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root '.github\workflows\rc-release.yml')
+  foreach ($required in @("'v*-rc.*'", 'runs-on: windows-2022', 'prerelease: true', 'not Authenticode-signed', 'FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-installer.exe', 'SHA256SUMS.txt', 'release-manifest.json')) {
+    Assert-True ($rcWorkflow.Contains($required)) "Release-candidate workflow is missing required contract: $required"
+  }
+  foreach ($forbidden in @('FLUXDM_CERT_THUMBPRINT', 'FLUXDM_TIMESTAMP_URL', 'environment: release', 'fluxdm-signing')) {
+    Assert-True (-not $rcWorkflow.Contains($forbidden)) "Release-candidate workflow must not contain production signing configuration: $forbidden"
   }
 
   Write-Host 'Release automation checks passed.'
