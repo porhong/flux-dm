@@ -51,7 +51,7 @@ function SettingsSection() {
   return (
     <Panel title="Interface settings" description="Foundation preferences are kept in UI state for now." badge="Local">
       <div className="p-6">
-        <div className="flex max-w-2xl items-center justify-between rounded-xl border border-white/8 bg-slate-950/40 p-4">
+        <div className="flex max-w-2xl items-center justify-between rounded-xl border border-border bg-surface p-4">
           <div className="flex items-center gap-4">
             <div className="grid size-10 place-items-center rounded-lg bg-cyan-400/10 text-cyan-300"><MonitorCog className="size-5" /></div>
             <div><h3 className="text-sm font-medium">Interface density</h3><p className="mt-1 text-xs text-slate-500">Choose spacing for lists and controls.</p></div>
@@ -61,7 +61,7 @@ function SettingsSection() {
             <Button size="sm" variant={density === "compact" ? "default" : "outline"} onClick={() => setDensity("compact")}>Compact</Button>
           </div>
         </div>
-        <div className="mt-4 flex max-w-2xl items-center justify-between gap-6 rounded-xl border border-white/8 bg-slate-950/40 p-4">
+        <div className="mt-4 flex max-w-2xl items-center justify-between gap-6 rounded-xl border border-border bg-surface p-4">
           <div><h3 className="text-sm font-medium">Global bandwidth limit</h3><p className="mt-1 text-xs text-slate-500">MiB/s shared by all active downloads. Use 0 for unlimited.</p></div>
           <div className="flex items-center gap-2">
             <Input className="w-28" aria-label="Global bandwidth limit" type="number" min={0} step="0.25" value={globalLimitMiB} onChange={(event) => setGlobalLimitMiB(event.target.value)} />
@@ -69,7 +69,7 @@ function SettingsSection() {
           </div>
         </div>
         {limitStatus && <p className="mt-3 text-xs text-slate-400" role="status">{limitStatus}</p>}
-        <div className="mt-4 max-w-2xl rounded-xl border border-white/8 bg-slate-950/40 p-4">
+        <div className="mt-4 max-w-2xl rounded-xl border border-border bg-surface p-4">
           <div className="flex items-center justify-between"><div><h3 className="text-sm font-medium">Browser integration</h3><p className="mt-1 text-xs text-slate-500">Chrome and Edge use the authenticated FluxDM native host.</p></div><Badge variant="secondary">Extension ID hnem…cbfn</Badge></div>
           <ol className="mt-3 list-decimal space-y-1 pl-5 text-xs text-slate-400"><li>Installed release: open <strong>FluxDM Browser Extension Setup</strong> from the Start menu. Development build: run <code>scripts\install-browser-integration.ps1</code>.</li><li>Enable browser Developer mode and load the packaged <code>browser-extension</code> folder as an unpacked extension.</li><li>Open Extension options and select Test connection; it reports Connected only after the desktop bridge replies.</li></ol>
         </div>
@@ -82,8 +82,8 @@ function SettingsSection() {
 
 function Panel({ title, description, badge, children }: { title: string; description: string; badge: string; children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.025] shadow-2xl shadow-black/20">
-      <div className="flex items-center justify-between border-b border-white/8 px-6 py-4">
+    <div className="ui-panel rounded-2xl">
+      <div className="ui-panel-header flex items-center justify-between px-6 py-4">
         <div><h2 className="font-medium">{title}</h2><p className="mt-1 text-xs text-slate-500">{description}</p></div>
         <Badge variant="secondary">{badge}</Badge>
       </div>

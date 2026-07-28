@@ -18,12 +18,24 @@ export function ClearSiteProfileSecrets(arg1) {
   return window['go']['main']['App']['ClearSiteProfileSecrets'](arg1);
 }
 
+export function ConfirmBrowserDownload(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['ConfirmBrowserDownload'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function CreateDownload(arg1) {
   return window['go']['main']['App']['CreateDownload'](arg1);
 }
 
+export function DefaultDownloadDirectory() {
+  return window['go']['main']['App']['DefaultDownloadDirectory']();
+}
+
 export function DeleteCategory(arg1) {
   return window['go']['main']['App']['DeleteCategory'](arg1);
+}
+
+export function DeleteDownloadedFile(arg1) {
+  return window['go']['main']['App']['DeleteDownloadedFile'](arg1);
 }
 
 export function DeleteQueue(arg1) {
@@ -36,6 +48,10 @@ export function DeleteSchedule(arg1) {
 
 export function DeleteSiteProfile(arg1) {
   return window['go']['main']['App']['DeleteSiteProfile'](arg1);
+}
+
+export function DiscardBrowserDownload(arg1) {
+  return window['go']['main']['App']['DiscardBrowserDownload'](arg1);
 }
 
 export function ExecutePostAction(arg1, arg2) {
@@ -62,6 +78,10 @@ export function ListDownloads() {
   return window['go']['main']['App']['ListDownloads']();
 }
 
+export function ListPendingBrowserDownloads() {
+  return window['go']['main']['App']['ListPendingBrowserDownloads']();
+}
+
 export function ListQueues() {
   return window['go']['main']['App']['ListQueues']();
 }
@@ -78,6 +98,14 @@ export function ListSiteProfiles() {
   return window['go']['main']['App']['ListSiteProfiles']();
 }
 
+export function MoveCompletedDownloadFiles(arg1) {
+  return window['go']['main']['App']['MoveCompletedDownloadFiles'](arg1);
+}
+
+export function OpenCompletedDownloadFile(arg1) {
+  return window['go']['main']['App']['OpenCompletedDownloadFile'](arg1);
+}
+
 export function PauseDownload(arg1) {
   return window['go']['main']['App']['PauseDownload'](arg1);
 }
@@ -86,12 +114,32 @@ export function ProbeURL(arg1) {
   return window['go']['main']['App']['ProbeURL'](arg1);
 }
 
+export function RecycleCompletedDownloadFiles(arg1) {
+  return window['go']['main']['App']['RecycleCompletedDownloadFiles'](arg1);
+}
+
+export function RemoveCompletedDownloadHistory(arg1) {
+  return window['go']['main']['App']['RemoveCompletedDownloadHistory'](arg1);
+}
+
+export function RemoveDownloadRecord(arg1) {
+  return window['go']['main']['App']['RemoveDownloadRecord'](arg1);
+}
+
+export function RenameCompletedDownloadFile(arg1, arg2) {
+  return window['go']['main']['App']['RenameCompletedDownloadFile'](arg1, arg2);
+}
+
 export function RestartDownload(arg1) {
   return window['go']['main']['App']['RestartDownload'](arg1);
 }
 
 export function ResumeDownload(arg1) {
   return window['go']['main']['App']['ResumeDownload'](arg1);
+}
+
+export function RevealCompletedDownloadFile(arg1) {
+  return window['go']['main']['App']['RevealCompletedDownloadFile'](arg1);
 }
 
 export function SaveCategory(arg1) {

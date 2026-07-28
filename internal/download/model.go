@@ -13,6 +13,7 @@ type Repository interface {
 	Get(context.Context, string) (Download, error)
 	List(context.Context) ([]Download, error)
 	Save(context.Context, Download) error
+	Delete(context.Context, string) error
 }
 
 type Download struct {

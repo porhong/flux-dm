@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/fluxdm/fluxdm/internal/browserintegration"
 	"github.com/fluxdm/fluxdm/internal/download"
 	"github.com/fluxdm/fluxdm/internal/events"
+	fluxfs "github.com/fluxdm/fluxdm/internal/filesystem"
 	fluxlog "github.com/fluxdm/fluxdm/internal/logging"
 	"github.com/fluxdm/fluxdm/internal/organization"
 	"github.com/fluxdm/fluxdm/internal/persistence"
@@ -33,19 +35,26 @@ type App struct {
 	logger        *fluxlog.Logger
 	database      *persistence.Database
 	downloads     *application.DownloadService
+	files         *application.FileManagementService
 	organization  *application.OrganizationService
 	schedules     *application.SchedulerService
 	browserBridge *browserintegration.Server
+	pending       *browserintegration.PendingStore
 	siteProfiles  *application.SiteProfileService
 	forceQuit     atomic.Bool
-	trayStarted   atomic.Bool
+	trayMu        sync.Mutex
+	trayStarted   bool
+	trayStop      chan struct{}
+	trayReady     chan struct{}
+	trayDone      chan struct{}
 }
 
 func NewApp(paths application.Paths, logger *fluxlog.Logger) *App {
 	return &App{
-		paths:  paths,
-		bus:    events.NewBus(),
-		logger: logger,
+		paths:   paths,
+		bus:     events.NewBus(),
+		logger:  logger,
+		pending: browserintegration.NewPendingStore(browserintegration.DefaultPendingTTL),
 	}
 }
 
@@ -91,6 +100,13 @@ func (a *App) startup(ctx context.Context) {
 			}
 		}
 	})
+	a.bus.Subscribe(events.DownloadRequested, func(event events.Event) {
+		runtime.EventsEmit(ctx, "download:requested", event.Data)
+		// Restore, foreground, and focus FluxDM so the browser handoff dialog is
+		// visible even when the application was hidden or minimised.
+		runtime.WindowUnminimise(ctx)
+		runtime.WindowShow(ctx)
+	})
 	httpClient := transport.NewHTTPClient()
 	organizationRepository := database.Organization()
 	a.organization = application.NewOrganizationService(organizationRepository, database.Downloads())
@@ -104,6 +120,7 @@ func (a *App) startup(ctx context.Context) {
 		organizationRepository,
 	)
 	a.downloads.SetRequestProfileResolver(a.siteProfiles)
+	a.files = application.NewFileManagementService(database.Downloads(), fluxfs.NewCompletedFileManager(platformwindows.FileShell{}), a.bus)
 	if err := a.downloads.Recover(ctx); err != nil {
 		a.logger.Error("download recovery failed", map[string]any{"error": err.Error()})
 	}
@@ -118,7 +135,9 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(_ context.Context) {
-	stopTray()
+	trayShutdownCtx, cancelTrayShutdown := context.WithTimeout(context.Background(), 2*time.Second)
+	a.stopTray(trayShutdownCtx)
+	cancelTrayShutdown()
 	if a.schedules != nil {
 		a.schedules.Close()
 	}
@@ -139,19 +158,90 @@ func (a *App) shutdown(_ context.Context) {
 }
 
 func (a *App) acceptBrowserRequest(ctx context.Context, message browserintegration.Request) error {
-	home, err := os.UserHomeDir()
+	pendingID := a.pending.Put(time.Now(), browserintegration.PendingRequest{
+		URL:               message.URL,
+		SuggestedFilename: message.SuggestedFilename,
+		Referrer:          message.Referrer,
+		Cookies:           message.Cookies,
+	})
+	a.bus.Publish(events.Event{
+		Type: events.DownloadRequested,
+		Data: application.DownloadRequestEvent{
+			PendingID:         pendingID,
+			URL:               message.URL,
+			SuggestedFilename: message.SuggestedFilename,
+			Referrer:          message.Referrer,
+		},
+	})
+	return nil
+}
+
+// ConfirmBrowserDownload claims a parked browser handoff, creates the download
+// record with the cookies captured when the request arrived, and then consumes
+// it. A failed validation or record creation releases the request so the user
+// can correct the destination and try again. The frontend starts the download
+// separately so a queueing failure leaves the queued record visible in the
+// transfer list for the user to retry.
+func (a *App) ConfirmBrowserDownload(pendingID, destinationDir, fileName string, connections int, confirmExecutable bool) (application.DownloadDTO, error) {
+	if a.downloads == nil {
+		return application.DownloadDTO{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	if a.pending == nil || pendingID == "" {
+		return application.DownloadDTO{}, application.NewError(application.ErrInvalidInput, "This browser request is not valid.", nil)
+	}
+	pending, ok := a.pending.Claim(time.Now(), pendingID)
+	if !ok {
+		return application.DownloadDTO{}, application.NewError(application.ErrInvalidInput, "This browser request has expired, is already being handled, or was already handled. Retry it from the browser.", nil)
+	}
+	name := fileName
+	if name == "" {
+		name = pending.SuggestedFilename
+	}
+	created, err := a.downloads.CreateWithCookies(a.ctx, application.CreateDownloadInput{
+		URL:               pending.URL,
+		DestinationDir:    destinationDir,
+		FileName:          name,
+		Connections:       connections,
+		ConfirmExecutable: confirmExecutable,
+	}, pending.Cookies)
 	if err != nil {
-		return err
+		a.pending.Release(time.Now(), pendingID)
+		return application.DownloadDTO{}, err
 	}
-	directory := filepath.Join(home, "Downloads")
-	if err := os.MkdirAll(directory, 0o700); err != nil {
-		return err
+	a.pending.Complete(pendingID)
+	return created, nil
+}
+
+// DiscardBrowserDownload frees a parked browser handoff without creating a
+// download. Called by the frontend when the user cancels or closes the
+// confirmation dialog so cookies do not remain in memory until expiry.
+func (a *App) DiscardBrowserDownload(pendingID string) error {
+	if pendingID == "" {
+		return nil
 	}
-	created, err := a.downloads.CreateWithCookies(ctx, application.CreateDownloadInput{URL: message.URL, DestinationDir: directory, FileName: message.SuggestedFilename, Connections: 4}, message.Cookies)
-	if err != nil {
-		return err
+	a.pending.Discard(time.Now(), pendingID)
+	return nil
+}
+
+// ListPendingBrowserDownloads returns the metadata needed to recover browser
+// handoffs that arrived before the Wails frontend registered its event
+// listener. Browser cookies remain in the pending store and are never
+// included in this DTO.
+func (a *App) ListPendingBrowserDownloads() ([]application.DownloadRequestEvent, error) {
+	if a.pending == nil {
+		return nil, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
 	}
-	return a.downloads.Start(ctx, created.ID)
+	pending := a.pending.List(time.Now())
+	requests := make([]application.DownloadRequestEvent, 0, len(pending))
+	for _, request := range pending {
+		requests = append(requests, application.DownloadRequestEvent{
+			PendingID:         request.ID,
+			URL:               request.URL,
+			SuggestedFilename: request.SuggestedFilename,
+			Referrer:          request.Referrer,
+		})
+	}
+	return requests, nil
 }
 
 func (a *App) ExecuteSchedule(ctx context.Context, item scheduler.Schedule) error {
@@ -205,6 +295,14 @@ func (a *App) beforeClose(ctx context.Context) bool {
 	}
 	runtime.WindowHide(ctx)
 	return true
+}
+
+// showWindow restores the tray-hidden window after a second FluxDM launch.
+func (a *App) showWindow() {
+	if a.ctx != nil {
+		runtime.WindowUnminimise(a.ctx)
+		runtime.WindowShow(a.ctx)
+	}
 }
 
 func (a *App) ProbeURL(rawURL string) (application.ProbeDTO, error) {
@@ -282,6 +380,66 @@ func (a *App) GetDownload(id string) (application.DownloadDTO, error) {
 		return application.DownloadDTO{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
 	}
 	return a.downloads.Get(a.ctx, id)
+}
+
+// RemoveDownloadRecord removes a completed transfer from FluxDM's history but
+// deliberately keeps the downloaded file.
+func (a *App) RemoveDownloadRecord(id string) error {
+	if a.downloads == nil {
+		return application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.downloads.RemoveRecord(a.ctx, id)
+}
+
+// DeleteDownloadedFile deletes a completed transfer's file and its history
+// record. It never runs or opens the completed file.
+func (a *App) DeleteDownloadedFile(id string) error {
+	if a.downloads == nil {
+		return application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.downloads.DeleteCompletedFile(a.ctx, id)
+}
+
+func (a *App) OpenCompletedDownloadFile(id string) error {
+	if a.files == nil {
+		return application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.Open(a.ctx, id)
+}
+
+func (a *App) RevealCompletedDownloadFile(id string) error {
+	if a.files == nil {
+		return application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.Reveal(a.ctx, id)
+}
+
+func (a *App) RenameCompletedDownloadFile(id, fileName string) (application.DownloadDTO, error) {
+	if a.files == nil {
+		return application.DownloadDTO{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.Rename(a.ctx, id, fileName)
+}
+
+func (a *App) MoveCompletedDownloadFiles(input application.MoveCompletedDownloadsInput) (application.CompletedFileOperationResult, error) {
+	if a.files == nil {
+		return application.CompletedFileOperationResult{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.Move(a.ctx, input)
+}
+
+func (a *App) RemoveCompletedDownloadHistory(ids []string) (application.CompletedFileOperationResult, error) {
+	if a.files == nil {
+		return application.CompletedFileOperationResult{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.RemoveHistory(a.ctx, ids)
+}
+
+func (a *App) RecycleCompletedDownloadFiles(ids []string) (application.CompletedFileOperationResult, error) {
+	if a.files == nil {
+		return application.CompletedFileOperationResult{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.RecycleAndRemoveHistory(a.ctx, ids)
 }
 
 func (a *App) ListCategories() ([]organization.Category, error) {
@@ -406,6 +564,16 @@ func (a *App) SelectDestinationDirectory() (string, error) {
 	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Choose download folder",
 	})
+}
+
+// DefaultDownloadDirectory returns the user's standard Downloads folder for
+// pre-populating the download confirmation dialog.
+func (a *App) DefaultDownloadDirectory() (string, error) {
+	directory, err := application.DefaultDownloadDirectory()
+	if err != nil {
+		return "", application.NewError(application.ErrInternal, "Could not prepare the default Downloads folder.", err)
+	}
+	return directory, nil
 }
 
 // HealthCheck confirms that the backend and persistence layer are available.

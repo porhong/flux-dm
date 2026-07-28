@@ -2,7 +2,7 @@ importScripts("policy.js")
 
 const HOST = "com.fluxdm.browser"
 const MAX_URL_LENGTH = 8192
-const { isExcludedHost, isExcludedExtension } = globalThis.FluxDMPolicy
+const { defaultInterceptExtensions, isEligibleLink, isExcludedHost, isExcludedExtension } = globalThis.FluxDMPolicy
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: "fluxdm-download", title: "Download with FluxDM", contexts: ["link"] })
@@ -13,23 +13,27 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   void sendToFluxDM(info.linkUrl, tab?.url || "", "")
 })
 
-chrome.downloads.onCreated.addListener((item) => {
-  void interceptDownload(item)
-})
-
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== "fluxdm:ping") return false
-  sendNative({ version: 1, requestId: requestID(), type: "ping" }).then(sendResponse)
-  return true
+  if (message?.type === "fluxdm:ping") {
+    sendNative({ version: 1, requestId: requestID(), type: "ping" }).then(sendResponse)
+    return true
+  }
+  if (message?.type === "fluxdm:handoff-link") {
+    void handOffLink(message).then(sendResponse)
+    return true
+  }
+  return false
 })
 
-async function interceptDownload(item) {
-  if (!item.url || !isHTTP(item.url) || item.url.length > MAX_URL_LENGTH) return
-  const settings = await chrome.storage.sync.get({ enabled: true, excludedHosts: [], excludedExtensions: [], shareCookies: false })
-  if (!settings.enabled || isExcludedHost(item.url, settings.excludedHosts) || isExcludedExtension(item, settings.excludedExtensions)) return
-  const response = await sendToFluxDM(item.url, item.referrer || "", item.filename?.split(/[\\/]/).pop() || "", settings.shareCookies)
-  // The browser remains responsible for the download unless FluxDM explicitly accepted it.
-  if (response?.accepted) await chrome.downloads.cancel(item.id)
+async function handOffLink(message) {
+  if (typeof message.url !== "string" || typeof message.referrer !== "string" || typeof message.suggestedFilename !== "string" || typeof message.hasDownloadAttribute !== "boolean") return { accepted: false, code: "invalid_message" }
+  if (!isHTTP(message.url) || message.url.length > MAX_URL_LENGTH) return { accepted: false, code: "invalid_url" }
+
+  const settings = await chrome.storage.sync.get({ enabled: true, excludedHosts: [], excludedExtensions: [], interceptExtensions: defaultInterceptExtensions, shareCookies: false })
+  if (!settings.enabled || isExcludedHost(message.url, settings.excludedHosts) || isExcludedExtension({ url: message.url, filename: message.suggestedFilename }, settings.excludedExtensions)) return { accepted: false, code: "excluded" }
+  if (!isEligibleLink(message.url, message.suggestedFilename, message.hasDownloadAttribute, settings.interceptExtensions)) return { accepted: false, code: "not_eligible" }
+
+  return sendToFluxDM(message.url, message.referrer, message.suggestedFilename, settings.shareCookies)
 }
 
 async function sendToFluxDM(url, referrer, suggestedFilename, shareCookies = false) {

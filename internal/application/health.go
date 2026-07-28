@@ -1,9 +1,11 @@
 package application
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -19,6 +21,27 @@ func DefaultPaths() (Paths, error) {
 		return Paths{}, err
 	}
 	return Paths{DataDir: filepath.Join(root, "FluxDM")}, nil
+}
+
+// DefaultDownloadDirectory returns the user's standard Downloads directory,
+// creating it when it has not yet been created by Windows or another app.
+func DefaultDownloadDirectory() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return defaultDownloadDirectoryForHome(home)
+}
+
+func defaultDownloadDirectoryForHome(home string) (string, error) {
+	if strings.TrimSpace(home) == "" {
+		return "", errors.New("user home directory is required")
+	}
+	directory := filepath.Join(home, "Downloads")
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		return "", err
+	}
+	return directory, nil
 }
 
 type HealthStatus struct {

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -523,6 +524,91 @@ func (s *DownloadService) Get(ctx context.Context, id string) (DownloadDTO, erro
 	return downloadToDTO(task), nil
 }
 
+// RemoveRecord removes a completed download from FluxDM's history while
+// preserving the downloaded file on disk.
+func (s *DownloadService) RemoveRecord(ctx context.Context, id string) error {
+	task, err := s.completedDownload(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.repository.Delete(ctx, task.ID); err != nil {
+		return repositoryError("remove", err)
+	}
+	s.clearDownloadSecrets(ctx, task.ID)
+	return nil
+}
+
+// DeleteCompletedFile removes a completed download's file and then removes
+// its history record. The record remains available when the file cannot be
+// deleted so the user can choose to keep the record or retry the operation.
+func (s *DownloadService) DeleteCompletedFile(ctx context.Context, id string) error {
+	task, err := s.completedDownload(ctx, id)
+	if err != nil {
+		return err
+	}
+	filePath, err := completedFilePath(task)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return NewError(ErrInvalidInput, "The completed file is already missing. Remove the record instead.", err)
+		}
+		return NewError(ErrInvalidInput, "The completed file path is not safe to delete.", err)
+	}
+	if err := os.Remove(filePath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return NewError(ErrInvalidInput, "The completed file is already missing. Remove the record instead.", err)
+		}
+		return NewError(ErrInternal, "Could not delete the completed file.", err)
+	}
+	if err := s.repository.Delete(ctx, task.ID); err != nil {
+		return repositoryError("remove", err)
+	}
+	s.clearDownloadSecrets(ctx, task.ID)
+	return nil
+}
+
+func (s *DownloadService) completedDownload(ctx context.Context, id string) (download.Download, error) {
+	id, err := validateID(id)
+	if err != nil {
+		return download.Download{}, NewError(ErrInvalidInput, "Invalid download identifier.", err)
+	}
+	task, err := s.repository.Get(ctx, id)
+	if err != nil {
+		return download.Download{}, repositoryError("remove", err)
+	}
+	if task.State != download.StateCompleted {
+		return download.Download{}, NewError(ErrInvalidInput, "Only completed downloads can be removed.", nil)
+	}
+	return task, nil
+}
+
+func (s *DownloadService) clearDownloadSecrets(ctx context.Context, id string) {
+	if s.profileResolver != nil {
+		_ = s.profileResolver.ClearDownloadSecrets(ctx, id)
+	}
+}
+
+func completedFilePath(task download.Download) (string, error) {
+	filePath := filepath.Clean(task.DestinationPath)
+	if !filepath.IsAbs(filePath) || filepath.Base(filePath) != task.FileName {
+		return "", errors.New("completed file path does not match its download record")
+	}
+	directory, err := fluxfs.ValidateDestinationDirectory(filepath.Dir(filePath))
+	if err != nil {
+		return "", err
+	}
+	if filepath.Clean(filepath.Join(directory, task.FileName)) != filePath {
+		return "", errors.New("completed file is outside its destination directory")
+	}
+	info, err := os.Lstat(filePath)
+	if err != nil {
+		return "", err
+	}
+	if info.IsDir() {
+		return "", errors.New("completed file path is a directory")
+	}
+	return filePath, nil
+}
+
 func (s *DownloadService) SetGlobalBandwidthLimit(limit int64) error {
 	if limit < 0 {
 		return NewError(ErrInvalidInput, "Bandwidth limit cannot be negative.", nil)
@@ -707,7 +793,12 @@ func (s *DownloadService) worker() {
 		s.process(runCtx, job, control)
 		cancel()
 		s.mu.Lock()
-		delete(s.running, job.id)
+		// A paused run removes its own control before it publishes StatePaused so
+		// Resume cannot be lost in the small window before this worker unwinds.
+		// Do not remove a newer control that may already be running the resumed job.
+		if s.running[job.id] == control {
+			delete(s.running, job.id)
+		}
 		s.queueRunning[job.queueID]--
 		s.mu.Unlock()
 		s.signalWorkers()
@@ -858,7 +949,7 @@ func (s *DownloadService) process(ctx context.Context, job downloadJob, control 
 		switch {
 		case intent == intentPause:
 			_ = task.Transition(download.StatePausing)
-			s.finishPause(context.WithoutCancel(ctx), task)
+			s.finishPause(context.WithoutCancel(ctx), task, control)
 		case intent == intentCancel:
 			s.finishCancel(context.WithoutCancel(ctx), task.ID)
 		case s.ctx.Err() != nil:
@@ -903,7 +994,7 @@ func (s *DownloadService) handlePreEngineError(ctx context.Context, task *downlo
 	}
 }
 
-func (s *DownloadService) finishPause(ctx context.Context, task download.Download) {
+func (s *DownloadService) finishPause(ctx context.Context, task download.Download, control *runControl) {
 	if err := reconcileTemporaryFile(&task); err != nil {
 		s.finishWithError(ctx, &task, err)
 		return
@@ -918,6 +1009,11 @@ func (s *DownloadService) finishPause(ctx context.Context, task download.Downloa
 	}
 	task.LastError = ""
 	if err := s.repository.Save(ctx, task); err == nil {
+		s.mu.Lock()
+		if s.running[task.ID] == control {
+			delete(s.running, task.ID)
+		}
+		s.mu.Unlock()
 		s.publishUpdated(downloadToDTO(task))
 	}
 }

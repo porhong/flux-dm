@@ -1,0 +1,86 @@
+name: unsigned Windows release candidate
+
+on:
+  push:
+    tags:
+      - 'v*-rc.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release-candidate:
+    # This is intentionally a GitHub-hosted runner: no certificate, private
+    # key, signing secret, or protected production environment is involved.
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install the pinned Wails CLI
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          Join-Path (go env GOPATH) 'bin' | Add-Content -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Prepare Windows packaging tools
+        shell: pwsh
+        run: |
+          Add-Content -Encoding utf8 $env:GITHUB_PATH 'C:\msys64\ucrt64\bin'
+          choco install nsis.install --version=3.12.0 --yes --no-progress --limit-output
+          $nsisPath = 'C:\Program Files (x86)\NSIS'
+          if (-not (Test-Path -LiteralPath (Join-Path $nsisPath 'makensis.exe'))) { throw "NSIS installation did not provide makensis.exe at $nsisPath" }
+          Add-Content -Encoding utf8 $env:GITHUB_PATH $nsisPath
+          if (-not (Test-Path -LiteralPath 'C:\Program Files\7-Zip\7z.exe')) {
+            choco install 7zip.install --yes --no-progress --limit-output
+          }
+          if (-not (Test-Path -LiteralPath 'C:\Program Files\7-Zip\7z.exe')) { throw '7-Zip installation did not provide 7z.exe.' }
+
+      - name: Validate release-candidate tag and product version
+        id: version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $releaseVersion = .\scripts\validate-rc-release-version.ps1 -Tag $env:RELEASE_TAG
+          $productVersion = .\scripts\get-product-version.ps1
+          "release_version=$releaseVersion" | Add-Content -Encoding utf8 $env:GITHUB_OUTPUT
+          "product_version=$productVersion" | Add-Content -Encoding utf8 $env:GITHUB_OUTPUT
+
+      - name: Check release automation contracts
+        shell: pwsh
+        run: .\scripts\test-release-automation.ps1
+
+      - name: Build and verify unsigned release-candidate assets
+        shell: pwsh
+        run: |
+          .\scripts\build-release.ps1 `
+            -Version '${{ steps.version.outputs.product_version }}' `
+            -ReleaseVersion '${{ steps.version.outputs.release_version }}' `
+            -SevenZipPath 'C:\Program Files\7-Zip\7z.exe'
+
+      - name: Publish unsigned release-candidate installer
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: true
+          body: |
+            ## Unsigned release candidate
+
+            This installer is for testing only. It is intentionally **not Authenticode-signed** and Windows may show a SmartScreen or publisher warning. Verify its SHA-256 against `SHA256SUMS.txt` before installing. Do not treat this prerelease as a production release.
+          files: |
+            build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-installer.exe
+            build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-installer.exe.sha256
+            build/release/SHA256SUMS.txt
+            build/release/release-manifest.json

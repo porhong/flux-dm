@@ -62,3 +62,27 @@ func TestDownloadRepositoryNotFound(t *testing.T) {
 		t.Fatalf("expected not found, got %v", err)
 	}
 }
+
+func TestDownloadRepositoryDelete(t *testing.T) {
+	ctx := context.Background()
+	database, err := Open(ctx, filepath.Join(t.TempDir(), "repository.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	repository := database.Downloads()
+	task := download.Download{
+		ID: "download-1", URL: "https://example.test/file", FileName: "file.bin",
+		DestinationPath: filepath.Join(t.TempDir(), "file.bin"), TempPath: filepath.Join(t.TempDir(), "file.bin.fluxpart"),
+		State: download.StateCompleted, TotalBytes: 16, DownloadedBytes: 16, CreatedAt: time.Now().UTC(), Connections: 1,
+	}
+	if err := repository.Create(ctx, task); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Delete(ctx, task.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.Get(ctx, task.ID); !errors.Is(err, download.ErrNotFound) {
+		t.Fatalf("expected deleted download to be absent, got %v", err)
+	}
+}

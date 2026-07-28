@@ -32,7 +32,7 @@
 - Site/profile credentials, cookies, headers, and proxy passwords are encrypted by current-user Windows DPAPI. Browser cookie records are deleted after completion/cancellation.
 - Custom headers use token grammar, reject CR/LF, have count/length caps, and cannot override reserved transport/auth/cookie headers.
 - The MV3 native protocol has a fixed extension ID/origin, versioned schema, strict unknown-field rejection, and a 64 KiB frame limit.
-- The desktop bridge binds only to `127.0.0.1`, requires a random 256-bit per-session token, and applies body/header/time limits. Browser downloads are cancelled only after durable desktop acceptance.
+- The desktop bridge binds only to `127.0.0.1`, requires a random 256-bit per-session token, and applies body/header/time limits. Eligible links are handed to FluxDM before browser navigation; a rejected handoff replays in the browser rather than cancelling an existing browser download.
 - The native host can launch only the adjacent fixed `FluxDM.exe` path via direct process creation. It never invokes a command shell or interpolates user input.
 
 ### Persistence, logging, and recovery

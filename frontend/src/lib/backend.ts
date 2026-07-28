@@ -4,21 +4,33 @@ import {
   AssignDownloads as invokeAssignDownloads,
   ClearSiteProfileSecrets as invokeClearSiteProfileSecrets,
   ClearPrivateData as invokeClearPrivateData,
+  ConfirmBrowserDownload as invokeConfirmBrowserDownload,
   CreateDownload as invokeCreateDownload,
+  DefaultDownloadDirectory as invokeDefaultDownloadDirectory,
   DeleteCategory as invokeDeleteCategory,
+  DeleteDownloadedFile as invokeDeleteDownloadedFile,
   DeleteQueue as invokeDeleteQueue,
   DeleteSchedule as invokeDeleteSchedule,
   DeleteSiteProfile as invokeDeleteSiteProfile,
+  DiscardBrowserDownload as invokeDiscardBrowserDownload,
   HealthCheck as invokeHealthCheck,
   ListDownloads as invokeListDownloads,
+  ListPendingBrowserDownloads as invokeListPendingBrowserDownloads,
   ListCategories as invokeListCategories,
   ListQueues as invokeListQueues,
   ListScheduleHistory as invokeListScheduleHistory,
   ListSchedules as invokeListSchedules,
   ListSiteProfiles as invokeListSiteProfiles,
+	MoveCompletedDownloadFiles as invokeMoveCompletedDownloadFiles,
+	OpenCompletedDownloadFile as invokeOpenCompletedDownloadFile,
   PauseDownload as invokePauseDownload,
   ProbeURL as invokeProbeURL,
-  RestartDownload as invokeRestartDownload,
+	RestartDownload as invokeRestartDownload,
+	RecycleCompletedDownloadFiles as invokeRecycleCompletedDownloadFiles,
+	RemoveCompletedDownloadHistory as invokeRemoveCompletedDownloadHistory,
+	RenameCompletedDownloadFile as invokeRenameCompletedDownloadFile,
+	RevealCompletedDownloadFile as invokeRevealCompletedDownloadFile,
+  RemoveDownloadRecord as invokeRemoveDownloadRecord,
   ResumeDownload as invokeResumeDownload,
   SaveCategory as invokeSaveCategory,
   SaveQueue as invokeSaveQueue,
@@ -107,6 +119,30 @@ export type DownloadItem = z.infer<typeof downloadSchema>
 export type DownloadProgress = z.infer<typeof progressSchema>
 export type ProbeResult = z.infer<typeof probeSchema>
 
+const completedFileOperationFailureSchema = z.object({ id: z.string(), message: z.string() })
+export const completedFileOperationResultSchema = z.object({
+  updated: z.array(downloadSchema),
+  removedIds: z.array(z.string()),
+  skippedIds: z.array(z.string()),
+  failures: z.array(completedFileOperationFailureSchema),
+})
+export type CompletedFileOperationResult = z.infer<typeof completedFileOperationResultSchema>
+
+// Emitted by the Go backend when a browser handoff arrives. The pendingId
+// ties the confirmation dialog back to the cookies that the backend kept
+// server-side; cookies themselves never appear in this payload.
+const downloadRequestSchema = z.object({
+  pendingId: z.string().min(1),
+  url: z.string(),
+  suggestedFilename: z.string(),
+  referrer: z.string(),
+})
+export type DownloadRequestEvent = z.infer<typeof downloadRequestSchema>
+
+export function isDownloadRequestEvent(value: unknown): value is DownloadRequestEvent {
+  return downloadRequestSchema.safeParse(value).success
+}
+
 const categorySchema = z.object({
   id: z.string(), name: z.string(), extensions: z.array(z.string()),
   destinationDir: z.string(), priority: z.number(), createdAt: z.string(),
@@ -144,6 +180,7 @@ export interface CreateDownloadInput {
 export interface SaveCategoryInput { id: string; name: string; extensions: string[]; destinationDir: string; priority: number }
 export interface SaveQueueInput { id: string; name: string; priority: number; maxParallel: number; maxConnections: 1 | 2 | 4 | 8 | 16; bandwidthLimit: number; sequential: boolean; enabled: boolean }
 export interface AssignDownloadsInput { downloadIds: string[]; categoryId: string; queueId: string; priority: number }
+export interface MoveCompletedDownloadsInput { downloadIds: string[]; destinationDir: string }
 export interface SaveScheduleInput { id:string;name:string;enabled:boolean;weekdays:number[];timeOfDay:string;action:z.infer<typeof scheduleActionSchema>;queueId:string;speedLimit:number;missedPolicy:z.infer<typeof missedPolicySchema>;postAction:z.infer<typeof postActionSchema>;confirmPowerAction:boolean }
 export interface SaveSiteProfileInput {id:string;name:string;hostPattern:string;authType:"none"|"basic"|"bearer";username:string;password:string;bearerToken:string;cookies:string;headers:Record<string,string>;proxyUrl:string;proxyUsername:string;proxyPassword:string}
 
@@ -157,6 +194,36 @@ export async function probeURL(url: string): Promise<ProbeResult> {
 
 export async function createDownload(input: CreateDownloadInput): Promise<DownloadItem> {
   return downloadSchema.parse(await invokeCreateDownload({ ...input, categoryId: input.categoryId ?? "", queueId: input.queueId ?? "", priority: input.priority ?? 0, siteProfileId:input.siteProfileId??"",confirmExecutable:input.confirmExecutable??false }))
+}
+
+// Consumes the parked browser handoff identified by pendingId and creates
+// the download record using the cookies captured when the request arrived.
+// The returned download is in queued state; the caller is responsible for
+// calling startDownload separately so a queue admission failure leaves the
+// record visible in the transfer list.
+export async function confirmBrowserDownload(
+  pendingId: string,
+  destinationDir: string,
+  fileName: string,
+  connections: 1 | 2 | 4 | 8 | 16,
+  confirmExecutable: boolean,
+): Promise<DownloadItem> {
+  return downloadSchema.parse(await invokeConfirmBrowserDownload(pendingId, destinationDir, fileName, connections, confirmExecutable))
+}
+
+// Releases the parked browser handoff without creating a download. Called
+// when the user cancels or closes the confirmation dialog so the backend
+// can drop the captured cookies immediately rather than waiting for TTL.
+export async function discardBrowserDownload(pendingId: string): Promise<void> {
+  await invokeDiscardBrowserDownload(pendingId)
+}
+
+export async function listPendingBrowserDownloads(): Promise<DownloadRequestEvent[]> {
+  return z.array(downloadRequestSchema).parse(await invokeListPendingBrowserDownloads())
+}
+
+export async function defaultDownloadDirectory(): Promise<string> {
+  return z.string().min(1).parse(await invokeDefaultDownloadDirectory())
 }
 
 export async function listCategories(): Promise<Category[]> { return z.array(categorySchema).parse(await invokeListCategories()) }
@@ -180,6 +247,13 @@ export async function listDownloads(): Promise<DownloadItem[]> {
   return z.array(downloadSchema).parse(await invokeListDownloads())
 }
 
+export async function openCompletedDownloadFile(id: string): Promise<void> { await invokeOpenCompletedDownloadFile(id) }
+export async function revealCompletedDownloadFile(id: string): Promise<void> { await invokeRevealCompletedDownloadFile(id) }
+export async function renameCompletedDownloadFile(id: string, fileName: string): Promise<DownloadItem> { return downloadSchema.parse(await invokeRenameCompletedDownloadFile(id, fileName)) }
+export async function moveCompletedDownloadFiles(input: MoveCompletedDownloadsInput): Promise<CompletedFileOperationResult> { return completedFileOperationResultSchema.parse(await invokeMoveCompletedDownloadFiles(input)) }
+export async function removeCompletedDownloadHistory(ids: string[]): Promise<CompletedFileOperationResult> { return completedFileOperationResultSchema.parse(await invokeRemoveCompletedDownloadHistory(ids)) }
+export async function recycleCompletedDownloadFiles(ids: string[]): Promise<CompletedFileOperationResult> { return completedFileOperationResultSchema.parse(await invokeRecycleCompletedDownloadFiles(ids)) }
+
 export async function startDownload(id: string): Promise<void> {
   await invokeStartDownload(id)
 }
@@ -198,6 +272,14 @@ export async function resumeDownload(id: string): Promise<void> {
 
 export async function restartDownload(id: string): Promise<void> {
   await invokeRestartDownload(id)
+}
+
+export async function removeDownloadRecord(id: string): Promise<void> {
+  await invokeRemoveDownloadRecord(id)
+}
+
+export async function deleteDownloadedFile(id: string): Promise<void> {
+  await invokeDeleteDownloadedFile(id)
 }
 
 export async function setGlobalBandwidthLimit(limit: number): Promise<void> {

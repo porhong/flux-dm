@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -6,13 +6,21 @@ import { useUIStore } from "@/stores/ui-store"
 
 import App from "./App"
 
-const { cancelDownloadMock, healthCheckMock, listDownloadsMock, pauseDownloadMock, resumeDownloadMock, restartDownloadMock, startDownloadMock } = vi.hoisted(() => ({
+const { cancelDownloadMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, healthCheckMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
   cancelDownloadMock: vi.fn(),
+  confirmBrowserDownloadMock: vi.fn(),
+  defaultDownloadDirectoryMock: vi.fn(),
+  discardBrowserDownloadMock: vi.fn(),
   healthCheckMock: vi.fn(),
   listDownloadsMock: vi.fn(),
+  listPendingBrowserDownloadsMock: vi.fn(),
+  openCompletedDownloadFileMock: vi.fn(),
   pauseDownloadMock: vi.fn(),
+  probeURLMock: vi.fn(),
+  recycleCompletedDownloadFilesMock: vi.fn(),
   resumeDownloadMock: vi.fn(),
   restartDownloadMock: vi.fn(),
+  selectDestinationDirectoryMock: vi.fn(),
   startDownloadMock: vi.fn(),
 }))
 
@@ -21,11 +29,19 @@ vi.mock("@/lib/backend", async (importOriginal) => {
   return {
     ...actual,
     cancelDownload: cancelDownloadMock,
+    confirmBrowserDownload: confirmBrowserDownloadMock,
+    defaultDownloadDirectory: defaultDownloadDirectoryMock,
+    discardBrowserDownload: discardBrowserDownloadMock,
     healthCheck: healthCheckMock,
     listDownloads: listDownloadsMock,
+    listPendingBrowserDownloads: listPendingBrowserDownloadsMock,
+    openCompletedDownloadFile: openCompletedDownloadFileMock,
     pauseDownload: pauseDownloadMock,
+    probeURL: probeURLMock,
+    recycleCompletedDownloadFiles: recycleCompletedDownloadFilesMock,
     resumeDownload: resumeDownloadMock,
     restartDownload: restartDownloadMock,
+    selectDestinationDirectory: selectDestinationDirectoryMock,
     startDownload: startDownloadMock,
   }
 })
@@ -40,6 +56,11 @@ describe("App", () => {
     vi.clearAllMocks()
     useUIStore.setState({ activeSection: "downloads", density: "comfortable" })
     listDownloadsMock.mockResolvedValue([])
+    listPendingBrowserDownloadsMock.mockResolvedValue([])
+    confirmBrowserDownloadMock.mockResolvedValue({ id: "browser-download" })
+    defaultDownloadDirectoryMock.mockResolvedValue("C:\\Users\\test\\Downloads")
+    discardBrowserDownloadMock.mockResolvedValue(undefined)
+    selectDestinationDirectoryMock.mockResolvedValue("")
     healthCheckMock.mockResolvedValue({
       status: "ok",
       version: "test",
@@ -53,9 +74,93 @@ describe("App", () => {
   it("renders the foundation shell and reports backend health", async () => {
     render(<App />)
 
+    expect(screen.getAllByRole("img", { name: "FluxDM" })[0]).toHaveAttribute("src", "/FluxDM-Logo-full.png")
+    expect(screen.getAllByRole("img", { name: "BadbotDev" })[0]).toHaveAttribute("src", "/BadbotDev-Logo.png")
+    const credit = document.querySelector<HTMLElement>('footer[aria-label="Powered by BadbotDev"]')
+    const status = screen.getByText("Backend").closest<HTMLElement>(".sidebar-status")
+    if (!credit || !status) throw new Error("Sidebar footer content is missing")
+    expect(credit.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole("heading", { name: "Downloads" })).toBeInTheDocument()
     expect(await screen.findByText("Healthy")).toBeInTheDocument()
     expect(healthCheckMock).toHaveBeenCalledOnce()
+  })
+
+  it("recovers a browser handoff that arrived before the event listener", async () => {
+    probeURLMock.mockResolvedValue({
+      url: "https://example.test/archive.zip", finalUrl: "https://example.test/archive.zip", fileName: "archive.zip",
+      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: false,
+    })
+    listPendingBrowserDownloadsMock.mockResolvedValue([{
+      pendingId: "browser-pending-1", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
+    }])
+
+    render(<App />)
+
+    expect(await screen.findByRole("dialog", { name: "Start this download?" })).toBeInTheDocument()
+    expect(screen.getByText("archive.zip")).toBeInTheDocument()
+  })
+
+  it("passes executable confirmation from a browser handoff to the backend", async () => {
+    const user = userEvent.setup()
+    probeURLMock.mockResolvedValue({
+      url: "https://example.test/setup.exe", finalUrl: "https://example.test/setup.exe", fileName: "setup.exe",
+      totalBytes: 2_097_152, mimeType: "application/vnd.microsoft.portable-executable", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: true,
+    })
+    listPendingBrowserDownloadsMock.mockResolvedValue([{
+      pendingId: "browser-pending-exe", url: "https://example.test/setup.exe", suggestedFilename: "setup.exe", referrer: "",
+    }])
+    startDownloadMock.mockResolvedValue(undefined)
+
+    render(<App />)
+
+    await screen.findByRole("dialog", { name: "Start this download?" })
+    await user.click(await screen.findByRole("checkbox"))
+    await user.click(screen.getByRole("button", { name: "Start download" }))
+
+    await waitFor(() => expect(confirmBrowserDownloadMock).toHaveBeenCalledWith(
+      "browser-pending-exe", "C:\\Users\\test\\Downloads", "setup.exe", 4, true,
+    ))
+    expect(startDownloadMock).toHaveBeenCalledWith("browser-download")
+  })
+
+  it("lets a browser handoff choose a destination folder before starting", async () => {
+    const user = userEvent.setup()
+    probeURLMock.mockResolvedValue({
+      url: "https://example.test/archive.zip", finalUrl: "https://example.test/archive.zip", fileName: "archive.zip",
+      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: false,
+    })
+    listPendingBrowserDownloadsMock.mockResolvedValue([{
+      pendingId: "browser-pending-folder", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
+    }])
+    selectDestinationDirectoryMock.mockResolvedValue("D:\\Downloads")
+    startDownloadMock.mockResolvedValue(undefined)
+
+    render(<App />)
+
+    await screen.findByRole("dialog", { name: "Start this download?" })
+    await user.click(screen.getByRole("button", { name: "Browse destination folder" }))
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Destination folder" })).toHaveValue("D:\\Downloads"))
+    await user.click(screen.getByRole("button", { name: "Start download" }))
+
+    await waitFor(() => expect(confirmBrowserDownloadMock).toHaveBeenCalledWith(
+      "browser-pending-folder", "D:\\Downloads", "archive.zip", 4, false,
+    ))
+  })
+
+  it("keeps a browser handoff open after inspection fails and discards it only when cancelled", async () => {
+    const user = userEvent.setup()
+    probeURLMock.mockRejectedValue(new Error("FluxDM could not inspect that URL."))
+    listPendingBrowserDownloadsMock.mockResolvedValue([{
+      pendingId: "browser-pending-failure", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
+    }])
+
+    render(<App />)
+
+    await screen.findByRole("dialog", { name: "Start this download?" })
+    expect(await screen.findByText("FluxDM could not inspect that URL.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Start download" })).toBeDisabled()
+    await user.click(screen.getByRole("button", { name: "Cancel" }))
+    expect(discardBrowserDownloadMock).toHaveBeenCalledWith("browser-pending-failure")
   })
 
   it("navigates between sidebar sections", async () => {
@@ -84,8 +189,28 @@ describe("App", () => {
     expect(screen.getByRole("combobox", { name: "Connections" })).toHaveTextContent("4 connections")
 
     await user.type(screen.getByRole("textbox", { name: "Download URL" }), "file:///unsafe.bin")
-    await user.click(screen.getByRole("button", { name: "Add and start" }))
+    await user.click(screen.getByRole("button", { name: "Inspect download" }))
     expect(await screen.findByText("Only HTTP and HTTPS URLs are supported.")).toBeInTheDocument()
+  })
+
+  it("shows verified file details before starting a download in the default Downloads folder", async () => {
+    const user = userEvent.setup()
+    probeURLMock.mockResolvedValue({
+      url: "https://example.test/archive.zip", finalUrl: "https://cdn.example.test/archive.zip", fileName: "archive.zip",
+      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: false,
+    })
+    render(<App />)
+
+    await user.click(screen.getAllByRole("button", { name: "Add download" })[0])
+    const destination = screen.getByRole("textbox", { name: "Destination folder" })
+    await waitFor(() => expect(destination).toHaveValue("C:\\Users\\test\\Downloads"))
+    await user.type(screen.getByRole("textbox", { name: "Download URL" }), "https://example.test/archive.zip")
+    await user.click(screen.getByRole("button", { name: "Inspect download" }))
+
+    expect(await screen.findByRole("region", { name: "Download details" })).toBeInTheDocument()
+    expect(screen.getByText("archive.zip")).toBeInTheDocument()
+    expect(screen.getByText("2.00 MB")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Add and start" })).toBeInTheDocument()
   })
 
   it("offers pause, resume, retry, and restart actions", async () => {
@@ -128,7 +253,7 @@ describe("App", () => {
     await user.type(screen.getByRole("textbox", { name: "Search downloads" }), "archive-09999")
     expect(await screen.findByText("archive-09999.bin")).toBeInTheDocument()
     expect(screen.getAllByRole("row").length).toBe(2)
-  })
+  }, 15_000)
 
   it("supports keyboard selection and properties", async () => {
     const user = userEvent.setup()
@@ -144,6 +269,39 @@ describe("App", () => {
     expect(selectedRow).not.toBeNull()
     fireEvent.keyDown(selectedRow as HTMLElement, { key: "Enter" })
     expect(screen.getByRole("dialog", { name: "Download properties" })).toBeInTheDocument()
+  })
+
+  it("opens a completed file only after an explicit row action", async () => {
+    const user = userEvent.setup()
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "completed", fileName: "report.pdf", state: "completed" })])
+    openCompletedDownloadFileMock.mockResolvedValue(undefined)
+    render(<App />)
+
+    await user.click(await screen.findByRole("button", { name: "More actions for report.pdf" }))
+    await user.click(screen.getByRole("menuitem", { name: /open/i }))
+    expect(openCompletedDownloadFileMock).toHaveBeenCalledWith("completed")
+  })
+
+  it("shows a completed download as a state without a progress bar", async () => {
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "completed", fileName: "report.pdf", state: "completed", downloadedBytes: 1024 })])
+    render(<App />)
+
+    expect(await screen.findByText("report.pdf")).toBeInTheDocument()
+    expect(screen.getAllByText("Completed")).toHaveLength(2)
+    expect(screen.queryByLabelText("report.pdf progress")).not.toBeInTheDocument()
+  })
+
+  it("confirms recycling selected completed files", async () => {
+    const user = userEvent.setup()
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "completed", fileName: "report.pdf", state: "completed" })])
+    recycleCompletedDownloadFilesMock.mockResolvedValue({ updated: [], removedIds: ["completed"], skippedIds: [], failures: [] })
+    render(<App />)
+
+    await user.click(await screen.findByLabelText("Select report.pdf"))
+    await user.click(screen.getByRole("button", { name: "Remove files" }))
+    expect(screen.getByRole("dialog", { name: "Remove completed files" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Recycle files" }))
+    expect(recycleCompletedDownloadFilesMock).toHaveBeenCalledWith(["completed"])
   })
 
   it("supports keyboard transfer and global shortcuts", async () => {

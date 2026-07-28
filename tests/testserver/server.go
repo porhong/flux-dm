@@ -124,7 +124,9 @@ func (s *Server) slow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pauseLoop(w http.ResponseWriter, r *http.Request) {
-	const total = 1024 * 1024 * 1024
+	// This is large enough that 100 quick pause/resume cycles cannot finish it,
+	// while avoiding a 1 GiB preallocation for every Windows integration test.
+	const total = 128 * 1024 * 1024
 	s.rangedZeroStream(w, r, total, `"pause-loop-v1"`, 8*1024, time.Millisecond)
 }
 

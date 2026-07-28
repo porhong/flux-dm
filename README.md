@@ -71,6 +71,11 @@ Chrome Stable intentionally restricts command-line loading of unpacked extension
 ## Validation
 
 ```powershell
+Push-Location frontend
+npm ci
+npm run build
+Pop-Location
+
 go fmt ./...
 go vet ./...
 go test ./...
@@ -91,6 +96,25 @@ To independently inspect the final NSIS payload, pass a full 7-Zip executable:
 
 Use `scripts\verify-installed-layout.ps1` to validate installed files, exact native-host/uninstall registrations, all-users shortcuts, hashes, signatures, and optionally a responsive running process without changing or uninstalling the installation.
 
+## Releases
+
+Download FluxDM from the repository's [GitHub Releases](../../releases) page. The installer is the only supported release download because it installs browser integration and shortcuts; standalone executables are intentionally not published.
+
+For a release `X.Y.Z`, download `FluxDM-X.Y.Z-windows-amd64-installer.exe` and either its adjacent `.sha256` file or `SHA256SUMS.txt`. Verify it in PowerShell before installing:
+
+```powershell
+Get-FileHash .\FluxDM-X.Y.Z-windows-amd64-installer.exe -Algorithm SHA256
+Get-Content .\SHA256SUMS.txt
+```
+
+The reported hash must match the entry for the installer. `release-manifest.json` is the corresponding machine-readable asset manifest.
+
+Until Authenticode signing is available, testers can use an **unsigned release candidate**. Update and merge the intended `X.Y.Z` product version, then push a new `vX.Y.Z-rc.N` tag (for example, `v1.0.0-rc.1`). This creates a clearly labelled GitHub prerelease from a GitHub-hosted runner with the versioned installer and SHA-256 files, but it does not use signing secrets or a certificate. Verify the checksum before installation; Windows may display a SmartScreen or unknown-publisher warning. Release candidates are not production releases and must not be announced as trusted/signed downloads.
+
+Production releases are created by pushing the matching protected `vX.Y.Z` tag. The signed workflow waits for approval of the protected `release` environment, then runs on the dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. That runner must have Go, Node.js, Wails, MinGW/GCC, NSIS, Windows SDK `signtool`, 7-Zip, and access to the hardware- or OS-backed Authenticode certificate. Its certificate thumbprint and RFC 3161 timestamp URL are protected environment configuration; no PFX or private key is stored in GitHub or this repository.
+
+FluxDM is available under the [MIT License](LICENSE).
+
 Architecture and security notes are in [`docs/architecture`](docs/architecture) and [`docs/security`](docs/security).
 Measured Milestone 1 performance is documented in [`docs/performance/milestone-1.md`](docs/performance/milestone-1.md).
 Resume and crash-recovery guarantees are documented in [`docs/architecture/resume-safety.md`](docs/architecture/resume-safety.md).
@@ -102,7 +126,7 @@ Scheduler execution and duplicate prevention are documented in [`docs/architectu
 Browser extension and native-host security are documented in [`docs/architecture/browser-integration.md`](docs/architecture/browser-integration.md).
 Credential storage and proxy handling are documented in [`docs/security/credentials-and-proxies.md`](docs/security/credentials-and-proxies.md).
 The consolidated threat model and privacy review are in [`docs/security/threat-model.md`](docs/security/threat-model.md) and [`docs/security/privacy-review.md`](docs/security/privacy-review.md).
-Release notes, signing, update architecture, diagnostics, and clean-machine validation are under [`docs/release`](docs/release).
+Release notes, signing, update architecture, diagnostics, and clean-machine validation are under [`docs/release`](docs/release). The end-to-end production procedure is in [`docs/release/release-build-process.md`](docs/release/release-build-process.md).
 The requirement-by-requirement status and remaining external release evidence are recorded in [`docs/release/completion-audit.md`](docs/release/completion-audit.md).
 
 ## Scope boundary

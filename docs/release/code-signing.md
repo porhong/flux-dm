@@ -1,10 +1,12 @@
 # Code-signing strategy
 
-Production releases require an organization-validated Authenticode code-signing certificate available in the Windows certificate store. The private key must remain in a hardware-backed provider or CI secret-backed signing service; it is never stored in this repository.
+Production releases require an organization-validated Authenticode code-signing certificate available in the Windows certificate store. The private key must remain in a hardware- or OS-backed provider; it is never stored in this repository, GitHub secrets, or a release artifact.
+
+GitHub publication is limited to protected `vX.Y.Z` tags. The `signed Windows release` workflow first verifies that the tag is strict semver and exactly matches `wails.json`, then waits for approval of the protected `release` environment. Only after approval does it run on the dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. That runner must provide Go, Node.js, the pinned Wails CLI, MinGW/GCC, NSIS, Windows SDK `signtool`, and 7-Zip, in addition to access to the signing certificate. Configure `FLUXDM_CERT_THUMBPRINT` and `FLUXDM_TIMESTAMP_URL` only as protected-environment secrets. Do not export a PFX, private key, or signing-service credential into GitHub Actions logs or artifacts.
 
 `scripts/build-release.ps1 -Sign` signs `FluxDM.exe` and `FluxDM.NativeHost.exe` before rebuilding the installer. NSIS then signs the embedded uninstaller and final installer through its finalize hooks. Every signature uses SHA-256 and an RFC 3161 timestamp. `scripts/verify-release.ps1` checks both PowerShell Authenticode status and WinVerifyTrust through `signtool verify /pa /all`.
 
-Unsigned development installers may be built for local testing, but must not be published as releases. Release publication is blocked unless all three top-level artifacts and the embedded uninstaller validate on clean Windows 10 and Windows 11 machines.
+Unsigned development installers may be built for local testing or CI, but must not be published as releases. Release publication is blocked unless the installer, packaged desktop executable, packaged native host, and embedded uninstaller validate. The release publishes only the signed, versioned NSIS installer, its SHA-256 files, and `release-manifest.json`; it never publishes standalone executables.
 
 `-AllowUntimestampedTestSignature` exists only to exercise the complete signing/NSIS verification path with an ephemeral local test certificate when a timestamp authority is unavailable. It requires an empty `-TimestampUrl`, is never acceptable for publication, and does not relax the default production requirement for an RFC 3161 timestamp.
 
