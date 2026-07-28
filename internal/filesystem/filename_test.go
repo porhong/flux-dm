@@ -41,7 +41,11 @@ func TestAvailableDestinationAvoidsDuplicates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fileName != "archive (1).zip" || finalPath != filepath.Join(directory, fileName) || tempPath != finalPath+".fluxpart" {
+	validatedDirectory, err := ValidateDestinationDirectory(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fileName != "archive (1).zip" || finalPath != filepath.Join(validatedDirectory, fileName) || tempPath != finalPath+".fluxpart" {
 		t.Fatalf("unexpected destination: %q %q %q", finalPath, tempPath, fileName)
 	}
 }
