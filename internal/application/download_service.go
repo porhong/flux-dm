@@ -928,7 +928,11 @@ func (s *DownloadService) process(ctx context.Context, job downloadJob, control 
 	}
 
 	lastCheckpoint := time.Now()
+	var progressMu sync.Mutex
 	err = s.engine.Download(ctx, task, func(progress download.Progress) {
+		progressMu.Lock()
+		defer progressMu.Unlock()
+
 		task.DownloadedBytes = progress.DownloadedBytes
 		task.Segments = append([]download.Segment(nil), progress.Segments...)
 		if len(progress.Segments) == 1 && task.Connections != 1 {

@@ -86,11 +86,13 @@ jobs:
       - run: npm ci
         working-directory: frontend
       - run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
-      - name: Install pinned NSIS compiler
+      - name: Prepare NSIS compiler
         shell: pwsh
         run: |
-          choco install nsis.install --version=3.12.0 --yes --no-progress --limit-output
           $nsisPath = 'C:\Program Files (x86)\NSIS'
+          if (-not (Test-Path -LiteralPath (Join-Path $nsisPath 'makensis.exe'))) {
+            choco install nsis.install --yes --no-progress --limit-output
+          }
           if (-not (Test-Path -LiteralPath (Join-Path $nsisPath 'makensis.exe'))) { throw "NSIS installation did not provide makensis.exe at $nsisPath" }
           Add-Content -Encoding utf8 $env:GITHUB_PATH $nsisPath
           & (Join-Path $nsisPath 'makensis.exe') /VERSION
