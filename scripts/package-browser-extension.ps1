@@ -10,11 +10,12 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 if (-not $ExtensionPath) { $ExtensionPath = Join-Path $root 'browser-extension' }
 
-function Assert-ContainedPath([string]$Root, [string]$Candidate, [string]$Message) {
+function Get-ContainedRelativePath([string]$Root, [string]$Candidate, [string]$Message) {
   $rootURI = [Uri]([IO.Path]::GetFullPath($Root).TrimEnd('\') + '\')
   $candidateURI = [Uri]([IO.Path]::GetFullPath($Candidate))
-  $relativePath = $rootURI.MakeRelativeUri($candidateURI).ToString()
+  $relativePath = [Uri]::UnescapeDataString($rootURI.MakeRelativeUri($candidateURI).ToString())
   if ($relativePath -eq '..' -or $relativePath.StartsWith('../', [StringComparison]::Ordinal) -or $relativePath -match '^[a-z][a-z0-9+.-]*:') { throw $Message }
+  return $relativePath.Replace('/', '\')
 }
 
 if ($ExpectedVersion -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
@@ -44,11 +45,11 @@ try {
   $sourceFiles = @(Get-ChildItem -LiteralPath $extension -Recurse -File -Force)
   if ($sourceFiles.Count -eq 0) { throw 'Browser extension directory contains no files.' }
   foreach ($sourceFile in $sourceFiles) {
-    $relativePath = $sourceFile.FullName.Substring($extension.Length + 1)
+    $relativePath = Get-ContainedRelativePath $extension $sourceFile.FullName "Refusing an extension file outside the source directory: $($sourceFile.FullName)"
     if ($excludedRelativePaths | Where-Object { $relativePath -eq $_ -or $relativePath.StartsWith($_ + '\', [StringComparison]::OrdinalIgnoreCase) }) { continue }
     $destination = Join-Path $stagingDirectory $relativePath
     $resolvedDestination = [IO.Path]::GetFullPath($destination)
-    Assert-ContainedPath $stagingDirectory $resolvedDestination "Refusing an extension file outside the package staging directory: $relativePath"
+    $null = Get-ContainedRelativePath $stagingDirectory $resolvedDestination "Refusing an extension file outside the package staging directory: $relativePath"
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $resolvedDestination) | Out-Null
     Copy-Item -LiteralPath $sourceFile.FullName -Destination $resolvedDestination -Force
   }
