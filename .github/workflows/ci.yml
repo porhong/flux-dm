@@ -98,6 +98,7 @@ jobs:
           & (Join-Path $nsisPath 'makensis.exe') /VERSION
       - run: wails build
       - run: go build -trimpath -o build/bin/FluxDM.NativeHost.exe ./cmd/fluxdm-native-host
+      - run: go build -trimpath -o build/bin/FluxDM.UpdateLauncher.exe ./cmd/fluxdm-update-launcher
       - run: wails build -nsis -s -skipbindings -trimpath -webview2 download
       - name: Verify Windows version metadata
         shell: pwsh
@@ -108,6 +109,7 @@ jobs:
           path: |
             build/bin/FluxDM.exe
             build/bin/FluxDM.NativeHost.exe
+            build/bin/FluxDM.UpdateLauncher.exe
             build/bin/FluxDM-amd64-installer.exe
 
   release-automation:
