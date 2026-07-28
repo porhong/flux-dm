@@ -37,7 +37,11 @@ func TestFileManagementMovesCompletedDownloadsAndSkipsTransfers(t *testing.T) {
 	if _, err := os.Stat(completed.DestinationPath); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("source file still exists: %v", err)
 	}
-	movedPath := filepath.Join(targetDirectory, "report.txt")
+	validatedTargetDirectory, err := fluxfs.ValidateDestinationDirectory(targetDirectory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	movedPath := filepath.Join(validatedTargetDirectory, "report.txt")
 	if data, err := os.ReadFile(movedPath); err != nil || string(data) != "completed data" {
 		t.Fatalf("moved file mismatch: %q, %v", data, err)
 	}
