@@ -113,6 +113,8 @@ Until Authenticode signing is available, testers can use an **unsigned release c
 
 Production releases are created by pushing the matching protected `vX.Y.Z` tag. The signed workflow waits for approval of the protected `release` environment, then runs on the dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. That runner must have Go, Node.js, Wails, MinGW/GCC, NSIS, Windows SDK `signtool`, 7-Zip, and access to the hardware- or OS-backed Authenticode certificate. Its certificate thumbprint and RFC 3161 timestamp URL are protected environment configuration; no PFX or private key is stored in GitHub or this repository.
 
+For the complete RC and production procedures—including exact tag commands, required release assets, signing approval, checksum/signature verification, and recovery from a failed candidate—follow the [release build process](docs/release/release-build-process.md).
+
 FluxDM is available under the [MIT License](LICENSE).
 
 Architecture and security notes are in [`docs/architecture`](docs/architecture) and [`docs/security`](docs/security).

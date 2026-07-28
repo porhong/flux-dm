@@ -18,24 +18,105 @@ Only the signed installer is a release artifact. Do not publish `FluxDM.exe` or 
 
 The production workflow validates the tag strictly before it builds. A tag such as `v1.2`, `v01.2.3`, `v1.2.3-rc.1`, or a tag that does not match `wails.json` is rejected.
 
+## Choose the release channel
+
+Use the channel that matches the artifact's trust level. A green workflow is not itself evidence that an artifact is safe to distribute; verify the expected assets and metadata after every run.
+
+| Topic | Unsigned release candidate | Signed production release |
+| --- | --- | --- |
+| Purpose | Tester feedback and installation validation before trusted signing is available. | Public, trusted distribution after approval and clean-machine acceptance. |
+| Tag | `vX.Y.Z-rc.N`, where `N` is a new positive integer. | `vX.Y.Z`, matching the product version exactly. |
+| Workflow | **unsigned Windows release candidate** (`rc-release.yml`). | **signed Windows release** (`release.yml`). |
+| Runner | GitHub-hosted `windows-2022`. | Dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. |
+| Signing | Never signed; no certificate, protected environment, or signing secrets are available. | Authenticode signing with SHA-256 and an RFC 3161 timestamp, approved through the protected `release` environment. |
+| GitHub release type | Prerelease. | Normal release. |
+| Manifest | `version: X.Y.Z-rc.N`, `productVersion: X.Y.Z`, `signed: false`. | `version: X.Y.Z`, `productVersion: X.Y.Z`, `signed: true`. |
+| Tester/user message | Windows SmartScreen or an unknown-publisher warning is expected. Do not call it trusted or production-ready. | Verify the checksum and valid Authenticode signature before announcement. |
+
+Both channels publish exactly four custom assets: a versioned installer, its adjacent `.sha256` file, `SHA256SUMS.txt`, and `release-manifest.json`. GitHub also supplies source archives separately. Missing either installer file is a failed release, even if a GitHub Release page was created.
+
 ## Unsigned release candidates while signing is unavailable
 
 Use this channel only to give testers an installer before a trusted signing certificate or signing service is available. It is deliberately separate from the protected production path.
 
-1. Update and merge `wails.json` to the desired numeric product version `X.Y.Z`.
-2. Create a new release-candidate tag with a positive sequence number. Do not reuse a release-candidate tag:
+### 1. Prepare the exact candidate commit
+
+1. Update and merge the intended numeric product version `X.Y.Z`.
+2. Keep every packaged/user-visible version aligned before tagging:
+
+   | Location | Required value |
+   | --- | --- |
+   | `wails.json` → `info.productVersion` | `X.Y.Z` |
+   | `internal/application/health.go` → `Version` | `X.Y.Z` |
+   | `browser-extension/manifest.json` → `version` | `X.Y.Z` |
+
+3. Verify the merged commit locally. Replace the placeholders with the product version and the intended RC tag:
 
    ```powershell
-   git tag vX.Y.Z-rc.N <merged-commit-sha>
+   .\scripts\validate-rc-release-version.ps1 -Tag vX.Y.Z-rc.N
+   .\scripts\test-release-automation.ps1
+   git status --short
+   git rev-parse HEAD
+   ```
+
+   `git status --short` must produce no output. Record the printed commit SHA: Actions builds the commit the tag points to, not a later commit on `main`.
+
+4. Run the required validation suite described in [Run the required validation suite](#run-the-required-validation-suite). Do not tag a commit that has not passed it.
+
+### 2. Create and verify the RC tag
+
+Create an **annotated**, never-reused tag at the already-merged and validated commit. Do not omit the commit SHA; an explicit target prevents accidentally tagging an older local checkout.
+
+   ```powershell
+   $commit = '<merged-commit-sha>'
+   git tag -a vX.Y.Z-rc.N $commit -m "FluxDM X.Y.Z release candidate N"
    git push origin vX.Y.Z-rc.N
    ```
 
-3. The **unsigned Windows release candidate** workflow runs on GitHub-hosted `windows-2022`, installs the build tools, executes the complete validation suite, builds the installer, validates its payload hashes, and publishes a GitHub **prerelease**.
-4. Share only the installer, checksum files, and the explicit warning that it is unsigned. Testers must compare `Get-FileHash -Algorithm SHA256` output with `SHA256SUMS.txt` before running it.
+Immediately confirm the remote tag resolves to the expected commit:
+
+```powershell
+git ls-remote --tags origin refs/tags/vX.Y.Z-rc.N
+```
+
+### 3. Review the workflow and published prerelease
+
+The **unsigned Windows release candidate** workflow runs on GitHub-hosted `windows-2022`, installs the packaging tools, executes the complete validation suite, builds the installer, validates its payload hashes, and publishes a GitHub **prerelease**.
+
+Before sharing it, verify all of the following in the workflow and GitHub Release page:
+
+1. The workflow ref is exactly `vX.Y.Z-rc.N` and its commit SHA is the commit recorded above.
+2. The workflow's staging output names the installer `FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe`.
+3. The GitHub prerelease contains all four custom assets:
+
+   ```text
+   FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe
+   FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe.sha256
+   SHA256SUMS.txt
+   release-manifest.json
+   ```
+
+4. `release-manifest.json` identifies the RC version, the numeric product version, and `signed: false`.
+5. The checksum in `SHA256SUMS.txt` identifies the RC installer filename exactly.
+
+Share only the installer, checksum files, and the explicit warning that it is unsigned. Testers must compare `Get-FileHash -Algorithm SHA256` output with `SHA256SUMS.txt` before running it:
+
+```powershell
+$installer = '.\FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe'
+Get-FileHash -Algorithm SHA256 -LiteralPath $installer
+Get-Content .\SHA256SUMS.txt
+```
 
 The public asset is named `FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe`. Its `release-manifest.json` records the release-candidate version, the packaged `X.Y.Z` product version, and `signed: false`. Windows SmartScreen or an unknown-publisher warning is expected; a checksum confirms the downloaded bytes but does **not** establish publisher identity. Do not present this as a production, trusted, or signed release.
 
 This release-candidate workflow has no `release` environment, certificate thumbprint, timestamp endpoint, or self-hosted signing runner. It never publishes standalone executables. When signing becomes available, create a new final `vX.Y.Z` tag for the signed production workflow; do not promote or rename an unsigned release-candidate tag.
+
+### RC failure and recovery
+
+- If validation, packaging, or asset review fails, do not distribute the candidate. Mark the incomplete prerelease as draft or delete it according to the incident process.
+- If the source must change, merge the fix, rerun validation, and create `vX.Y.Z-rc.(N+1)` at the **new** commit. Re-running an old tag always builds the old source.
+- Never move, force-push, or reuse an RC tag. Preserve the failed workflow and release page as evidence.
+- If a workflow creates a prerelease with only checksums/manifest and no installer, treat it as incomplete. The workflows are configured to fail on unmatched upload files; investigate the staging and upload names before creating the next RC tag.
 
 ## One-time production setup
 
@@ -131,17 +212,33 @@ This unsigned command is useful for local QA only. It must not be uploaded as a 
 
 The production workflow is the publishing mechanism. It is intentionally not manually dispatchable.
 
-1. Verify that the version-change commit is merged into the target branch and all required checks have passed.
-2. Create and push the matching protected tag:
+### 1. Preflight the signing boundary
 
-   ```powershell
-   git tag vX.Y.Z <merged-commit-sha>
-   git push origin vX.Y.Z
-   ```
+1. Verify that the version-change commit is merged into the target branch, the working tree is clean, and all required checks have passed.
+2. Confirm the `release` environment still requires approval and exposes only `FLUXDM_CERT_THUMBPRINT` and `FLUXDM_TIMESTAMP_URL` to the workflow.
+3. Confirm the dedicated runner has the expected `self-hosted`, `windows`, and `fluxdm-signing` labels, access to the certificate without exporting it, `signtool.exe`, NSIS, 7-Zip, Go, Node, Wails, and MinGW/GCC.
+4. Confirm a clean Windows 10 and Windows 11 acceptance plan is ready. A signed release is not ready for announcement until the [Clean-machine acceptance](#clean-machine-acceptance) evidence is complete.
 
-3. Open the **signed Windows release** GitHub Actions run. Confirm its ref is exactly `vX.Y.Z` and it is using the expected signing runner.
-4. An authorized reviewer approves the `release` environment only after checking the tag, commit, release scope, and runner identity.
-5. After approval, the workflow performs the following gates in order:
+### 2. Create the final protected tag
+
+Production tags are final numeric versions only. An RC tag never becomes the production tag, even if its installer passed testing.
+
+```powershell
+.\scripts\validate-release-version.ps1 -Tag vX.Y.Z
+.\scripts\test-release-automation.ps1
+
+$commit = '<merged-commit-sha>'
+git tag -a vX.Y.Z $commit -m "FluxDM X.Y.Z"
+git push origin vX.Y.Z
+```
+
+Do not create the final tag until the version metadata and source are final. Never move or replace it after publication.
+
+### 3. Approve and monitor the production workflow
+
+1. Open the **signed Windows release** GitHub Actions run. Confirm its ref is exactly `vX.Y.Z`, its commit SHA is the approved commit, and it is using the expected signing runner.
+2. An authorized reviewer approves the `release` environment only after checking the tag, commit, release scope, runner identity, and certificate availability.
+3. After approval, the workflow performs the following gates in order:
 
    1. Validates the tag against `wails.json` and runs the release-automation contract tests.
    2. Runs Go formatting, vet, tests, race tests, module verification, and vulnerability scanning.
@@ -153,7 +250,7 @@ The production workflow is the publishing mechanism. It is intentionally not man
    8. Verifies Authenticode/WinVerifyTrust signatures and extracts the NSIS payload with 7-Zip to compare hashes and signatures.
    9. Creates the versioned release assets and a non-draft GitHub Release with GitHub-generated release notes.
 
-The signing thumbprint and timestamp URL are read from the approved environment at runtime. Do not place them on a command line, echo them, upload environment dumps, or add diagnostic tracing around the signing step.
+The signing thumbprint and timestamp URL are read from the approved environment at runtime. Do not place them on a command line, echo them, upload environment dumps, or add diagnostic tracing around the signing step. Stop immediately if the runner requests a PIN interactively, the certificate chain is unexpected, the timestamp operation fails, or any signature verification fails.
 
 ## Release assets and verification
 
