@@ -17,7 +17,11 @@ $extensionManifestPath = Join-Path $installed 'browser-extension\manifest.json'
 $uninstallKey = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\FluxDMFluxDM'
 $nativeKeys = @(
   'HKLM:\Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser',
-  'HKLM:\Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser'
+  'HKLM:\Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser',
+  'HKLM:\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser',
+  'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser',
+  'HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser',
+  'HKCU:\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser'
 )
 $shortcuts = @(
   (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\FluxDM.lnk'),

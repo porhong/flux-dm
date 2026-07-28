@@ -26,7 +26,7 @@ FluxDM is an original Windows download manager built with Wails, Go, React, and 
 - Close-to-tray behavior, tray Show/Add/Exit commands, and native Windows completion notifications
 - Deterministic extension categories, destination rules, persisted queue priority, sequential mode, aggregate queue bandwidth, and queue resource limits
 - Daily/weekly queue actions, speed profiles, retry policies, missed-run handling, durable history, and explicit post-completion power actions
-- Chrome/Edge MV3 interception, host/extension exclusions, and context actions through a bounded, authenticated native-messaging and loopback protocol
+- Chrome/Edge/Brave MV3 interception, host/extension exclusions, and context actions through a bounded, authenticated native-messaging and loopback protocol
 - Per-site Basic/Bearer authentication, opt-in browser cookies, validated custom headers, and authenticated proxy profiles protected by Windows DPAPI
 - Executable warnings, sensitive-destination blocking, corruption-preserving database recovery, fuzz targets, cross-host header stripping, and privacy reset controls
 - Windows 10/11 NSIS packaging with WebView2 handling, shortcuts, browser-host registration/unregistration, signing hooks, release manifests, and smoke-test automation
@@ -55,7 +55,7 @@ The SQLite database and structured log are stored below the current user's confi
 
 ## Browser extension
 
-An installed release registers the native host automatically. Open **FluxDM Browser Extension Setup** from the Windows Start menu, enable Developer mode at `chrome://extensions` or `edge://extensions`, choose **Load unpacked**, and select `C:\Program Files\FluxDM\FluxDM\browser-extension`. Open the extension options and choose **Test connection**. Each release additionally includes `FluxDM-X.Y.Z-browser-extension.zip` for official browser-store submission or portable loading: extract it before using **Load unpacked**, because Chromium browsers do not import a local ZIP directly.
+An installed release registers the native host automatically for Chrome, Edge, and Brave. Open **FluxDM Browser Extension Setup** from the Windows Start menu, enable Developer mode at `chrome://extensions`, `edge://extensions`, or `brave://extensions`, choose **Load unpacked**, and select `C:\Program Files\FluxDM\FluxDM\browser-extension`. Open the extension options and choose **Test connection**. Each release additionally includes `FluxDM-X.Y.Z-browser-extension.zip` for official browser-store submission or portable loading: extract it before using **Load unpacked**, because Chromium browsers do not import a local ZIP directly.
 
 For a source-tree development build, run `scripts\install-browser-integration.ps1` first and load this repository's `browser-extension` directory.
 

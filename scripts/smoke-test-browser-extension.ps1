@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory)][ValidateSet('Chrome','Edge')][string]$Browser,
+  [Parameter(Mandatory)][ValidateSet('Chrome','Edge','Brave')][string]$Browser,
   [Parameter(Mandatory)][string]$BrowserPath,
   [string]$ExtensionPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'browser-extension'),
   [string]$NativeHostPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'build\bin\FluxDM.NativeHost.exe'),
@@ -17,7 +17,11 @@ $nativeHostExecutable = (Resolve-Path -LiteralPath $NativeHostPath).Path
 $desktopExecutable = (Resolve-Path -LiteralPath $FluxDMPath).Path
 $node = (Get-Command node -ErrorAction Stop).Source
 $driver = Join-Path $PSScriptRoot 'browser-extension-smoke-driver.mjs'
-$registryPath = if ($Browser -eq 'Chrome') { 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser' } else { 'HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser' }
+$registryPath = switch ($Browser) {
+  'Chrome' { 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser' }
+  'Edge' { 'HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser' }
+  'Brave' { 'HKCU:\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser' }
+}
 
 $temporaryRoot = Join-Path $env:TEMP ('fluxdm-browser-smoke-' + [guid]::NewGuid().ToString('N'))
 $profileDirectory = Join-Path $temporaryRoot 'browser-profile'

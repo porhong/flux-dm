@@ -19,7 +19,7 @@
 <main>
   <h1>Install FluxDM Browser Integration</h1>
   <p class="note">The FluxDM installer has already registered the secure native messaging host. Complete these browser steps once for Chrome and/or Edge.</p>
-  <p class="note">If you downloaded the release ZIP, extract it first. Chrome and Edge load an unpacked folder; they do not import the ZIP file directly.</p>
+  <p class="note">If you downloaded the release ZIP, extract it first. Chromium browsers load an unpacked folder; they do not import the ZIP file directly.</p>
   <section>
     <h2>Chrome</h2>
     <ol>
@@ -38,6 +38,16 @@
       <li>Select <strong>Load unpacked</strong>.</li>
       <li>Select the folder containing this setup page and <code>manifest.json</code>.</li>
       <li>Open the extension options and select <strong>Test connection</strong>.</li>
+    </ol>
+  </section>
+  <section>
+    <h2>Brave</h2>
+    <ol>
+      <li>Open <code>brave://extensions</code>.</li>
+      <li>Enable <strong>Developer mode</strong>.</li>
+      <li>Select <strong>Load unpacked</strong>.</li>
+      <li>Select the folder containing this setup page and <code>manifest.json</code>.</li>
+      <li>Open the extension popup and select <strong>Test connection</strong>.</li>
     </ol>
   </section>
   <p class="note">Keep FluxDM installed at its registered location. Eligible download links are handed to FluxDM before the browser begins a download. You can disable the handoff or exclude hosts and file extensions in the extension options.</p>

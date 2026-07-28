@@ -184,13 +184,13 @@ The browser extension communicates with a small companion executable. Build it i
 go build -trimpath -o build\bin\FluxDM.NativeHost.exe .\cmd\fluxdm-native-host
 ```
 
-To register a source-tree development host for the current Windows user and prepare Chrome/Edge native-messaging registration, run:
+To register a source-tree development host for the current Windows user and prepare Chrome/Edge/Brave native-messaging registration, run:
 
 ```powershell
 .\scripts\install-browser-integration.ps1
 ```
 
-Then open `chrome://extensions` or `edge://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the repository's `browser-extension` directory. In the extension options, use **Test connection**. See [`browser-extension/README.md`](../browser-extension/README.md) for the concise browser-specific steps.
+Then open `chrome://extensions`, `edge://extensions`, or `brave://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the repository's `browser-extension` directory. In the extension options, use **Test connection**. See [`browser-extension/README.md`](../browser-extension/README.md) for the concise browser-specific steps.
 
 ## 8. Build an installer or release candidate
 

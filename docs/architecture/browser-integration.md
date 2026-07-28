@@ -1,6 +1,6 @@
 # Browser integration
 
-The Chrome/Edge Manifest V3 extension uses native messaging host `com.fluxdm.browser`. Its embedded public key fixes the extension ID at `hnemapnmnkccfommbacamppclohhcbfn`, and the native-host manifest allows only that origin.
+The Chrome/Edge/Brave Manifest V3 extension uses native messaging host `com.fluxdm.browser`. Its embedded public key fixes the extension ID at `hnemapnmnkccfommbacamppclohhcbfn`, and the native-host manifest allows only that origin.
 
 Pre-click handoff policy is stored in browser sync settings. It supports a configurable allow-list of file extensions plus hostname and file-extension exclusions. Explicit context-menu handoff remains available even when a rule excludes the URL. Cookie sharing is separately opt-in.
 

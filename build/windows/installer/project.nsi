@@ -135,6 +135,12 @@ Section
     SetRegView 64
     WriteRegStr HKLM "Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser" "" "$INSTDIR\com.fluxdm.browser.json"
     WriteRegStr HKLM "Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser" "" "$INSTDIR\com.fluxdm.browser.json"
+    WriteRegStr HKLM "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser" "" "$INSTDIR\com.fluxdm.browser.json"
+    # Chromium browsers prefer per-user registrations. Repair any stale source-tree
+    # integration by pointing the current user's host registration at this install.
+    WriteRegStr HKCU "Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser" "" "$INSTDIR\com.fluxdm.browser.json"
+    WriteRegStr HKCU "Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser" "" "$INSTDIR\com.fluxdm.browser.json"
+    WriteRegStr HKCU "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser" "" "$INSTDIR\com.fluxdm.browser.json"
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME} Browser Extension Setup.lnk" "$WINDIR\explorer.exe" '"$INSTDIR\browser-extension\install.html"'
@@ -165,6 +171,10 @@ Section "uninstall"
     SetRegView 64
     DeleteRegKey HKLM "Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser"
     DeleteRegKey HKLM "Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser"
+    DeleteRegKey HKLM "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"
+    DeleteRegKey HKCU "Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser"
+    DeleteRegKey HKCU "Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser"
+    DeleteRegKey HKCU "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${INFO_PRODUCTNAME}"
 
     ${If} $UninstallRemoveData == ${BST_CHECKED}

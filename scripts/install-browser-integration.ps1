@@ -11,7 +11,7 @@ $hostPath = (Join-Path $installDir 'FluxDM.NativeHost.exe').Replace('\','\\')
 $template = Get-Content -Raw -LiteralPath (Join-Path $root 'browser-extension\native-host\com.fluxdm.browser.template.json')
 $manifestPath = Join-Path $installDir 'com.fluxdm.browser.json'
 [IO.File]::WriteAllText($manifestPath, $template.Replace('@@NATIVE_HOST_PATH@@',$hostPath), [Text.UTF8Encoding]::new($false))
-foreach ($key in @('HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser','HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser')) {
+foreach ($key in @('HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser','HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser','HKCU:\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser')) {
   New-Item -Force -Path $key | Out-Null
   Set-Item -Path $key -Value $manifestPath
 }

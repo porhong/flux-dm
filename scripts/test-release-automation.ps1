@@ -102,6 +102,11 @@ try {
   Assert-True ($buildScript.Contains('$productVersion=&')) 'Release build must keep the product version separate from the release-version parameter.'
   Assert-True (-not $buildScript.Contains('$releaseVersion=&')) 'Release build must not overwrite the release-version parameter with the product version.'
 
+  $installerScript = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root 'build\windows\installer\project.nsi')
+  foreach ($required in @('WriteRegStr HKLM "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"', 'WriteRegStr HKCU "Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser"', 'WriteRegStr HKCU "Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser"', 'WriteRegStr HKCU "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKLM "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKCU "Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKCU "Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKCU "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"')) {
+    Assert-True ($installerScript.Contains($required)) "Installer must repair and remove the current-user native-host registration: $required"
+  }
+
   Write-Host 'Release automation checks passed.'
 } finally {
   if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }

@@ -289,7 +289,7 @@ On the signing runner, the release build additionally verifies the installer pay
 
 Before announcing a new production release, execute [the Windows smoke checklist](windows-smoke-checklist.md) on fresh, fully patched Windows 10 and Windows 11 machines. Record the OS build, browser and WebView2 versions, installer SHA-256, signature chain, and outcomes in the release ticket.
 
-At minimum, cover interactive and silent installation, desktop startup, browser integration in Chrome and Edge, a completed download with its expected hash, uninstall with both data-retention choices, reinstall, and verification that downloaded files are never automatically executed. Include the compatibility, scaling, path, disk-space, and WebView2 cases specified by the checklist.
+At minimum, cover interactive and silent installation, desktop startup, browser integration in Chrome, Edge, and Brave, a completed download with its expected hash, uninstall with both data-retention choices, reinstall, and verification that downloaded files are never automatically executed. Include the compatibility, scaling, path, disk-space, and WebView2 cases specified by the checklist.
 
 ## Publish review and rollback
 

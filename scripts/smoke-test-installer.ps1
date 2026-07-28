@@ -11,7 +11,11 @@ $installDir = Join-Path $env:ProgramFiles 'FluxDM\FluxDM'
 $uninstallKey = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\FluxDMFluxDM'
 $nativeKeys = @(
   'HKLM:\Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser',
-  'HKLM:\Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser'
+  'HKLM:\Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser',
+  'HKLM:\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser',
+  'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser',
+  'HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser',
+  'HKCU:\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser'
 )
 $userData = Join-Path $env:APPDATA 'FluxDM'
 $smokeID = [guid]::NewGuid().ToString('N')
