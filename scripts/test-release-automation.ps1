@@ -58,12 +58,12 @@ try {
   Assert-Throws { & "$PSScriptRoot\stage-release-assets.ps1" -Version '1.2.4-rc.1' -ProductVersion '1.2.3' -InstallerPath $installer -OutputDirectory (Join-Path $temporaryRoot 'invalid-release-candidate') } 'Release-candidate asset version/product mismatches must be rejected.'
 
   $workflow = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root '.github\workflows\release.yml')
-  foreach ($required in @('self-hosted', 'windows', 'fluxdm-signing', 'environment: release', 'generate_release_notes: true', 'FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe', 'SHA256SUMS.txt', 'release-manifest.json')) {
+  foreach ($required in @('self-hosted', 'windows', 'fluxdm-signing', 'environment: release', 'fail_on_unmatched_files: true', 'generate_release_notes: true', 'FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe', 'SHA256SUMS.txt', 'release-manifest.json')) {
     Assert-True ($workflow.Contains($required)) "Release workflow is missing required contract: $required"
   }
 
   $rcWorkflow = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root '.github\workflows\rc-release.yml')
-  foreach ($required in @("'v*-rc.*'", 'runs-on: windows-2022', 'prerelease: true', 'not Authenticode-signed', 'FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-installer.exe', 'SHA256SUMS.txt', 'release-manifest.json')) {
+  foreach ($required in @("'v*-rc.*'", 'runs-on: windows-2022', 'prerelease: true', 'not Authenticode-signed', 'fail_on_unmatched_files: true', 'FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-installer.exe', 'SHA256SUMS.txt', 'release-manifest.json')) {
     Assert-True ($rcWorkflow.Contains($required)) "Release-candidate workflow is missing required contract: $required"
   }
   foreach ($forbidden in @('FLUXDM_CERT_THUMBPRINT', 'FLUXDM_TIMESTAMP_URL', 'environment: release', 'fluxdm-signing')) {
@@ -75,6 +75,10 @@ try {
     Assert-True ($workflowDefinition.Contains('choco install nsis.install --yes')) 'Windows packaging workflow must install NSIS when the compiler is unavailable.'
     Assert-True (-not $workflowDefinition.Contains('nsis.install --version=')) 'Windows packaging workflow must not pin an NSIS version that can conflict with the hosted runner image.'
   }
+
+  $buildScript = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $PSScriptRoot 'build-release.ps1')
+  Assert-True ($buildScript.Contains('$productVersion=&')) 'Release build must keep the product version separate from the release-version parameter.'
+  Assert-True (-not $buildScript.Contains('$releaseVersion=&')) 'Release build must not overwrite the release-version parameter with the product version.'
 
   Write-Host 'Release automation checks passed.'
 } finally {

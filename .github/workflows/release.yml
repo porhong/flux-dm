@@ -62,6 +62,7 @@ jobs:
       - name: Publish signed installer release
         uses: softprops/action-gh-release@v2
         with:
+          fail_on_unmatched_files: true
           generate_release_notes: true
           draft: false
           prerelease: false
