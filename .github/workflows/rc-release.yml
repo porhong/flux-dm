@@ -71,7 +71,7 @@ jobs:
             -ReleaseVersion '${{ steps.version.outputs.release_version }}' `
             -SevenZipPath 'C:\Program Files\7-Zip\7z.exe'
 
-      - name: Publish unsigned release-candidate installer
+      - name: Publish unsigned release-candidate installer and browser extension
         uses: softprops/action-gh-release@v2
         with:
           fail_on_unmatched_files: true
@@ -85,5 +85,7 @@ jobs:
           files: |
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-installer.exe
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-installer.exe.sha256
+            build/release/FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip
+            build/release/FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip.sha256
             build/release/SHA256SUMS.txt
             build/release/release-manifest.json

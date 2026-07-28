@@ -6,7 +6,7 @@ GitHub publication is limited to protected `vX.Y.Z` tags. The `signed Windows re
 
 `scripts/build-release.ps1 -Sign` signs `FluxDM.exe` and `FluxDM.NativeHost.exe` before rebuilding the installer. NSIS then signs the embedded uninstaller and final installer through its finalize hooks. Every signature uses SHA-256 and an RFC 3161 timestamp. `scripts/verify-release.ps1` checks both PowerShell Authenticode status and WinVerifyTrust through `signtool verify /pa /all`.
 
-Unsigned development installers may be built for local testing or CI, but must not be published as releases. Release publication is blocked unless the installer, packaged desktop executable, packaged native host, and embedded uninstaller validate. The release publishes only the signed, versioned NSIS installer, its SHA-256 files, and `release-manifest.json`; it never publishes standalone executables.
+Unsigned development installers may be built for local testing or CI, but must not be published as releases. Release publication is blocked unless the installer, packaged desktop executable, packaged native host, and embedded uninstaller validate. A release publishes the signed, versioned NSIS installer plus a versioned browser-extension ZIP, adjacent SHA-256 files, `SHA256SUMS.txt`, and `release-manifest.json`; it never publishes standalone executables. The ZIP is integrity-checked but is not an Authenticode-signed executable.
 
 `-AllowUntimestampedTestSignature` exists only to exercise the complete signing/NSIS verification path with an ephemeral local test certificate when a timestamp authority is unavailable. It requires an empty `-TimestampUrl`, is never acceptable for publication, and does not relax the default production requirement for an RFC 3161 timestamp.
 

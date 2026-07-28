@@ -31,6 +31,8 @@ try{
   node --test browser-extension\policy.test.cjs;if($LASTEXITCODE){throw 'browser extension policy tests failed'}
   wails build -clean -trimpath -nocolour -ldflags '-s -w';if($LASTEXITCODE){throw 'Wails build failed'}
   go build -trimpath -ldflags '-s -w' -o build\bin\FluxDM.NativeHost.exe .\cmd\fluxdm-native-host;if($LASTEXITCODE){throw 'Native host build failed'}
+  $extensionPackage=Join-Path $root 'build\bin\FluxDM-browser-extension.zip'
+  & "$PSScriptRoot\package-browser-extension.ps1" -ExpectedVersion $productVersion -OutputPath $extensionPackage -Force;if($LASTEXITCODE){throw 'Browser extension package build failed'}
   $installerPath=Join-Path $root 'build\bin\FluxDM-amd64-installer.exe';if(Test-Path -LiteralPath $installerPath){Remove-Item -LiteralPath $installerPath -Force}
   wails build -nsis -s -skipbindings -trimpath -nocolour -ldflags '-s -w' -webview2 download;if($LASTEXITCODE -or -not(Test-Path -LiteralPath $installerPath)){throw 'NSIS build failed or produced no installer'}
   Push-Location build\windows\installer
@@ -41,6 +43,6 @@ try{
   $installer=Get-ChildItem build\bin\FluxDM-amd64-installer.exe -ErrorAction Stop
   $artifacts=@($app,$nativeHost,$installer.FullName);if($Sign){& "$PSScriptRoot\verify-release.ps1" -Path $artifacts -SignToolPath $SignToolPath}
   if($SevenZipPath){& "$PSScriptRoot\verify-installer-payload.ps1" -InstallerPath $installer.FullName -SevenZipPath $SevenZipPath -AppPath $app -NativeHostPath $nativeHost -ExtensionPath (Join-Path $root 'browser-extension') -Version $productVersion -RequireSignatures:$Sign}
-  & "$PSScriptRoot\stage-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $productVersion -InstallerPath $installer.FullName -OutputDirectory $ReleaseOutputDirectory -Signed:$Sign
+  & "$PSScriptRoot\stage-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $productVersion -InstallerPath $installer.FullName -ExtensionPackagePath $extensionPackage -OutputDirectory $ReleaseOutputDirectory -Signed:$Sign
   Write-Host "Release assets created in $ReleaseOutputDirectory"
 }finally{Pop-Location}

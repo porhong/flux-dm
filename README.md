@@ -55,7 +55,7 @@ The SQLite database and structured log are stored below the current user's confi
 
 ## Browser extension
 
-An installed release registers the native host automatically. Open **FluxDM Browser Extension Setup** from the Windows Start menu, enable Developer mode at `chrome://extensions` or `edge://extensions`, choose **Load unpacked**, and select `C:\Program Files\FluxDM\FluxDM\browser-extension`. Open the extension options and choose **Test connection**.
+An installed release registers the native host automatically. Open **FluxDM Browser Extension Setup** from the Windows Start menu, enable Developer mode at `chrome://extensions` or `edge://extensions`, choose **Load unpacked**, and select `C:\Program Files\FluxDM\FluxDM\browser-extension`. Open the extension options and choose **Test connection**. Each release additionally includes `FluxDM-X.Y.Z-browser-extension.zip` for official browser-store submission or portable loading: extract it before using **Load unpacked**, because Chromium browsers do not import a local ZIP directly.
 
 For a source-tree development build, run `scripts\install-browser-integration.ps1` first and load this repository's `browser-extension` directory.
 
@@ -98,7 +98,7 @@ Use `scripts\verify-installed-layout.ps1` to validate installed files, exact nat
 
 ## Releases
 
-Download FluxDM from the repository's [GitHub Releases](../../releases) page. The installer is the only supported release download because it installs browser integration and shortcuts; standalone executables are intentionally not published.
+Download FluxDM from the repository's [GitHub Releases](../../releases) page. Install the installer first: it installs the desktop application, native host, and shortcuts. The matching browser-extension ZIP is provided for official browser-store submission or portable **Load unpacked** installation after extraction; standalone executables are intentionally not published.
 
 For a release `X.Y.Z`, download `FluxDM-X.Y.Z-windows-amd64-installer.exe` and either its adjacent `.sha256` file or `SHA256SUMS.txt`. Verify it in PowerShell before installing:
 

@@ -1,5 +1,9 @@
 # Install the FluxDM browser extension (development build)
 
+For an installed FluxDM release, use the **FluxDM Browser Extension Setup** shortcut. It opens the packaged setup page and the extension folder is already available at `C:\Program Files\FluxDM\FluxDM\browser-extension`.
+
+Every release also includes `FluxDM-X.Y.Z-browser-extension.zip`. This is the browser-store submission and portable import package; install FluxDM first so its native messaging host is registered. Chrome and Edge do not install a local ZIP directly from their extensions pages: extract the ZIP, enable **Developer mode**, then select **Load unpacked** and choose the extracted folder. A store-published extension should be installed from that browser's official store instead.
+
 1. Run `scripts\install-browser-integration.ps1` from the repository root. This builds and registers the per-user native host for Chrome and Edge.
 2. Open `chrome://extensions` or `edge://extensions`.
 3. Enable **Developer mode**, choose **Load unpacked**, and select this `browser-extension` directory.

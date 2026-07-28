@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FluxDM</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="popup-shell">
+    <header class="popup-header">
+      <img class="brand-mark" src="icons/fluxdm.png" alt="">
+      <div>
+        <p class="eyebrow">Browser integration</p>
+        <h1>FluxDM</h1>
+      </div>
+      <span id="connection-dot" class="connection-dot" aria-hidden="true"></span>
+    </header>
+
+    <section class="status-card" aria-live="polite">
+      <div class="status-copy">
+        <span class="status-label">Desktop app</span>
+        <strong id="connection-status">Checking connection</strong>
+      </div>
+      <button id="refresh" class="icon-button" type="button" aria-label="Refresh connection status" title="Refresh connection status">&#x21bb;</button>
+    </section>
+
+    <section class="handoff-control" aria-labelledby="handoff-heading">
+      <div>
+        <h2 id="handoff-heading">Link handoff</h2>
+        <p id="handoff-description">Eligible downloads go to FluxDM.</p>
+      </div>
+      <button id="handoff-toggle" class="toggle" type="button" role="switch" aria-checked="true" aria-label="Toggle link handoff">
+        <span class="toggle-thumb"></span>
+      </button>
+    </section>
+
+    <div class="quick-actions" aria-label="Quick actions">
+      <button id="open-settings" class="button button-secondary" type="button">Settings</button>
+      <button id="test-connection" class="button button-primary" type="button">Test connection</button>
+    </div>
+
+    <p id="message" class="message">Ready to catch eligible downloads.</p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
