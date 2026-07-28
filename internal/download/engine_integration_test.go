@@ -57,27 +57,38 @@ func TestEngineCancelledBeforeFileIOLeavesNoTemporaryFile(t *testing.T) {
 }
 
 func TestEngineDynamicallySplitsSlowTailWithoutCorruption(t *testing.T) {
-	payload := deterministicPayload(8 * 1024 * 1024)
-	server := newPayloadServer(payload, 6*1024*1024)
-	defer server.Close()
-	task := segmentedTask(t, server.URL, t.TempDir(), int64(len(payload)), 4)
-	engine := download.NewEngineWithOptions(server.Client(), download.EngineOptions{
-		DynamicSplitMinBytes: 256 * 1024, SlowSegmentThreshold: 20 * time.Millisecond,
-		ProgressInterval: 10 * time.Millisecond,
-	})
-	var last download.Progress
-	if err := engine.Download(context.Background(), task, func(progress download.Progress) { last = progress }); err != nil {
-		t.Fatal(err)
-	}
-	if len(last.Segments) <= 4 {
-		t.Fatalf("slow tail was not split: %d segments", len(last.Segments))
-	}
-	if err := download.ValidateSegments(last.Segments, int64(len(payload))); err != nil {
-		t.Fatal(err)
-	}
-	actual, err := os.ReadFile(task.DestinationPath)
-	if err != nil || sha256.Sum256(actual) != sha256.Sum256(payload) {
-		t.Fatalf("dynamic split corrupted output: %v", err)
+	for run := 0; run < 5; run++ {
+		payload := deterministicPayload(8 * 1024 * 1024)
+		server := newPayloadServer(payload, 6*1024*1024)
+		task := segmentedTask(t, server.URL, t.TempDir(), int64(len(payload)), 4)
+		engine := download.NewEngineWithOptions(server.Client(), download.EngineOptions{
+			DynamicSplitMinBytes: 256 * 1024, SlowSegmentThreshold: 20 * time.Millisecond,
+			ProgressInterval: 10 * time.Millisecond,
+		})
+		var last download.Progress
+		var lastMu sync.Mutex
+		err := engine.Download(context.Background(), task, func(progress download.Progress) {
+			lastMu.Lock()
+			last = progress
+			lastMu.Unlock()
+		})
+		server.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		lastMu.Lock()
+		lastProgress := last
+		lastMu.Unlock()
+		if len(lastProgress.Segments) <= 4 {
+			t.Fatalf("slow tail was not split: %d segments", len(lastProgress.Segments))
+		}
+		if err := download.ValidateSegments(lastProgress.Segments, int64(len(payload))); err != nil {
+			t.Fatal(err)
+		}
+		actual, err := os.ReadFile(task.DestinationPath)
+		if err != nil || sha256.Sum256(actual) != sha256.Sum256(payload) {
+			t.Fatalf("dynamic split corrupted output: %v", err)
+		}
 	}
 }
 

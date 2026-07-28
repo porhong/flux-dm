@@ -238,8 +238,14 @@ func (e *Engine) downloadRanges(ctx context.Context, requestURL string, task Dow
 					start(newIndex)
 					continue
 				}
+				// A cancellation can arrive after the segment has advanced far
+				// enough that its remaining range is no longer worth splitting.
+				// Resume the unfinished range instead of treating that cancellation
+				// as a completed split.
+				start(result.index)
+				continue
 			}
-			if result.err != nil && !errors.Is(result.err, ErrCancelled) && firstErr == nil {
+			if result.err != nil && firstErr == nil {
 				firstErr = result.err
 				for _, other := range active {
 					other.cancel()
