@@ -115,6 +115,9 @@ try {
 	Assert-True ($buildScript.Contains('FluxDM.UpdateLauncher.exe')) 'Release build must package the update launcher.'
 
   $installerScript = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root 'build\windows\installer\project.nsi')
+  foreach ($required in @('Icon "..\icon.ico"', 'UninstallIcon "..\icon.ico"')) {
+    Assert-True ($installerScript.Contains($required)) "Installer must embed the FluxDM icon in its executable: $required"
+  }
   foreach ($required in @('WriteRegStr HKLM "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"', 'WriteRegStr HKCU "Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser"', 'WriteRegStr HKCU "Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser"', 'WriteRegStr HKCU "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKLM "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKCU "Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKCU "Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKCU "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"')) {
     Assert-True ($installerScript.Contains($required)) "Installer must repair and remove the current-user native-host registration: $required"
   }
