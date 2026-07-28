@@ -70,6 +70,12 @@ try {
     Assert-True (-not $rcWorkflow.Contains($forbidden)) "Release-candidate workflow must not contain production signing configuration: $forbidden"
   }
 
+  $ciWorkflow = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root '.github\workflows\ci.yml')
+  foreach ($workflowDefinition in @($ciWorkflow, $rcWorkflow)) {
+    Assert-True ($workflowDefinition.Contains('choco install nsis.install --yes')) 'Windows packaging workflow must install NSIS when the compiler is unavailable.'
+    Assert-True (-not $workflowDefinition.Contains('nsis.install --version=')) 'Windows packaging workflow must not pin an NSIS version that can conflict with the hosted runner image.'
+  }
+
   Write-Host 'Release automation checks passed.'
 } finally {
   if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }

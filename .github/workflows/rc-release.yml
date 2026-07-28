@@ -37,8 +37,10 @@ jobs:
         shell: pwsh
         run: |
           Add-Content -Encoding utf8 $env:GITHUB_PATH 'C:\msys64\ucrt64\bin'
-          choco install nsis.install --version=3.12.0 --yes --no-progress --limit-output
           $nsisPath = 'C:\Program Files (x86)\NSIS'
+          if (-not (Test-Path -LiteralPath (Join-Path $nsisPath 'makensis.exe'))) {
+            choco install nsis.install --yes --no-progress --limit-output
+          }
           if (-not (Test-Path -LiteralPath (Join-Path $nsisPath 'makensis.exe'))) { throw "NSIS installation did not provide makensis.exe at $nsisPath" }
           Add-Content -Encoding utf8 $env:GITHUB_PATH $nsisPath
           if (-not (Test-Path -LiteralPath 'C:\Program Files\7-Zip\7z.exe')) {
