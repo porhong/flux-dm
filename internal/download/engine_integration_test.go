@@ -406,6 +406,7 @@ func newPayloadServer(payload []byte, slowFrom int64) *httptest.Server {
 			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(payload)))
 			w.WriteHeader(http.StatusPartialContent)
 		}
+		slowTail := slowFrom >= 0 && start >= slowFrom
 		for offset := start; offset <= end; {
 			next := offset + 32*1024
 			if next > end+1 {
@@ -414,7 +415,10 @@ func newPayloadServer(payload []byte, slowFrom int64) *httptest.Server {
 			if _, err := w.Write(payload[offset:next]); err != nil {
 				return
 			}
-			if slowFrom >= 0 && start >= slowFrom {
+			if slowTail {
+				if flusher, ok := w.(http.Flusher); ok {
+					flusher.Flush()
+				}
 				time.Sleep(3 * time.Millisecond)
 			}
 			offset = next
