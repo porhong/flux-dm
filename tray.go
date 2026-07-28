@@ -45,6 +45,7 @@ func (a *App) runTray(ctx context.Context, stop <-chan struct{}, ready chan<- st
 		systray.SetTooltip("FluxDM download manager")
 		show := systray.AddMenuItem("Show FluxDM", "Show the main window")
 		add := systray.AddMenuItem("Add download", "Open the Add Download dialog")
+		updates := systray.AddMenuItem("Check for updates", "Open application update settings")
 		systray.AddSeparator()
 		exit := systray.AddMenuItem("Exit", "Exit FluxDM")
 		go func() {
@@ -57,6 +58,20 @@ func (a *App) runTray(ctx context.Context, stop <-chan struct{}, ready chan<- st
 				case <-show.ClickedCh:
 					runtime.WindowShow(ctx)
 					runtime.WindowUnminimise(ctx)
+				}
+			}
+		}()
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-stop:
+					return
+				case <-updates.ClickedCh:
+					runtime.WindowShow(ctx)
+					runtime.WindowUnminimise(ctx)
+					runtime.EventsEmit(ctx, "tray:updates")
 				}
 			}
 		}()

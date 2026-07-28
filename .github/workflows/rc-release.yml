@@ -10,9 +10,14 @@ permissions:
 
 jobs:
   release-candidate:
-    # This is intentionally a GitHub-hosted runner: no certificate, private
-    # key, signing secret, or protected production environment is involved.
+    # This GitHub-hosted runner has no Authenticode certificate, production
+    # signing secret, or protected production environment. Its preview-only
+    # metadata key cannot authorize Stable updates.
     runs-on: windows-2022
+    env:
+      FLUXDM_UPDATE_MANIFEST_PRIVATE_KEY: ${{ secrets.FLUXDM_UPDATE_PREVIEW_PRIVATE_KEY }}
+      FLUXDM_UPDATE_STABLE_PUBLIC_KEY: ${{ vars.FLUXDM_UPDATE_STABLE_PUBLIC_KEY }}
+      FLUXDM_UPDATE_PREVIEW_PUBLIC_KEY: ${{ vars.FLUXDM_UPDATE_PREVIEW_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -69,6 +74,8 @@ jobs:
           .\scripts\build-release.ps1 `
             -Version '${{ steps.version.outputs.product_version }}' `
             -ReleaseVersion '${{ steps.version.outputs.release_version }}' `
+            -UpdateStablePublicKey "$env:FLUXDM_UPDATE_STABLE_PUBLIC_KEY" `
+            -UpdatePreviewPublicKey "$env:FLUXDM_UPDATE_PREVIEW_PUBLIC_KEY" `
             -SevenZipPath 'C:\Program Files\7-Zip\7z.exe'
 
       - name: Publish unsigned release-candidate installer and browser extension
@@ -89,3 +96,5 @@ jobs:
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip.sha256
             build/release/SHA256SUMS.txt
             build/release/release-manifest.json
+            build/release/update-manifest.json
+            build/release/update-manifest.sig

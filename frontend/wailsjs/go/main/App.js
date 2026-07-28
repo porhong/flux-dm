@@ -10,6 +10,10 @@ export function CancelDownload(arg1) {
   return window['go']['main']['App']['CancelDownload'](arg1);
 }
 
+export function CheckForUpdates() {
+  return window['go']['main']['App']['CheckForUpdates']();
+}
+
 export function ClearPrivateData() {
   return window['go']['main']['App']['ClearPrivateData']();
 }
@@ -54,6 +58,10 @@ export function DiscardBrowserDownload(arg1) {
   return window['go']['main']['App']['DiscardBrowserDownload'](arg1);
 }
 
+export function DownloadUpdate() {
+  return window['go']['main']['App']['DownloadUpdate']();
+}
+
 export function ExecutePostAction(arg1, arg2) {
   return window['go']['main']['App']['ExecutePostAction'](arg1, arg2);
 }
@@ -66,8 +74,16 @@ export function GetDownload(arg1) {
   return window['go']['main']['App']['GetDownload'](arg1);
 }
 
+export function GetUpdateStatus() {
+  return window['go']['main']['App']['GetUpdateStatus']();
+}
+
 export function HealthCheck() {
   return window['go']['main']['App']['HealthCheck']();
+}
+
+export function InstallPreparedUpdate(arg1) {
+  return window['go']['main']['App']['InstallPreparedUpdate'](arg1);
 }
 
 export function ListCategories() {
@@ -156,6 +172,10 @@ export function SaveSchedule(arg1) {
 
 export function SaveSiteProfile(arg1) {
   return window['go']['main']['App']['SaveSiteProfile'](arg1);
+}
+
+export function SaveUpdatePreferences(arg1) {
+  return window['go']['main']['App']['SaveUpdatePreferences'](arg1);
 }
 
 export function SelectDestinationDirectory() {

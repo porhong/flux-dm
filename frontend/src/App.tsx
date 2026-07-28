@@ -54,6 +54,7 @@ export default function App() {
         enqueueBrowserRequests([payload])
       }
     })
+		EventsOn("tray:updates", () => setActiveSection("settings"))
     // A native handoff can start FluxDM before React registers the event
     // listener. Recover those parked requests after subscribing so an event
     // that arrives during this call is merged rather than lost.
@@ -78,6 +79,7 @@ export default function App() {
     return () => {
       EventsOff("app:ready")
       EventsOff("tray:add-download")
+		EventsOff("tray:updates")
       EventsOff("download:requested")
       window.removeEventListener("keydown", onKeyDown)
     }

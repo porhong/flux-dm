@@ -3,7 +3,8 @@ import {
   CancelDownload as invokeCancelDownload,
   AssignDownloads as invokeAssignDownloads,
   ClearSiteProfileSecrets as invokeClearSiteProfileSecrets,
-  ClearPrivateData as invokeClearPrivateData,
+	ClearPrivateData as invokeClearPrivateData,
+	CheckForUpdates as invokeCheckForUpdates,
   ConfirmBrowserDownload as invokeConfirmBrowserDownload,
   CreateDownload as invokeCreateDownload,
   DefaultDownloadDirectory as invokeDefaultDownloadDirectory,
@@ -11,9 +12,12 @@ import {
   DeleteDownloadedFile as invokeDeleteDownloadedFile,
   DeleteQueue as invokeDeleteQueue,
   DeleteSchedule as invokeDeleteSchedule,
-  DeleteSiteProfile as invokeDeleteSiteProfile,
+	DeleteSiteProfile as invokeDeleteSiteProfile,
+	DownloadUpdate as invokeDownloadUpdate,
   DiscardBrowserDownload as invokeDiscardBrowserDownload,
-  HealthCheck as invokeHealthCheck,
+	HealthCheck as invokeHealthCheck,
+	GetUpdateStatus as invokeGetUpdateStatus,
+	InstallPreparedUpdate as invokeInstallPreparedUpdate,
   ListDownloads as invokeListDownloads,
   ListPendingBrowserDownloads as invokeListPendingBrowserDownloads,
   ListCategories as invokeListCategories,
@@ -35,7 +39,8 @@ import {
   SaveCategory as invokeSaveCategory,
   SaveQueue as invokeSaveQueue,
   SaveSchedule as invokeSaveSchedule,
-  SaveSiteProfile as invokeSaveSiteProfile,
+	SaveSiteProfile as invokeSaveSiteProfile,
+	SaveUpdatePreferences as invokeSaveUpdatePreferences,
   SetDownloadBandwidthLimit as invokeSetDownloadBandwidthLimit,
   SetGlobalBandwidthLimit as invokeSetGlobalBandwidthLimit,
   SelectDestinationDirectory as invokeSelectDestinationDirectory,
@@ -163,6 +168,11 @@ export type Schedule = z.infer<typeof scheduleSchema>
 export type ScheduleHistory = z.infer<typeof scheduleHistorySchema>
 const siteProfileSchema=z.object({id:z.string(),name:z.string(),hostPattern:z.string(),authType:z.enum(["none","basic","bearer"]),proxyUrl:z.string(),hasCredentials:z.boolean(),hasCookies:z.boolean(),headerNames:z.array(z.string()),createdAt:z.string()})
 export type SiteProfile=z.infer<typeof siteProfileSchema>
+const updateChannelSchema=z.enum(["stable","preview"])
+const updatePhaseSchema=z.enum(["idle","checking","available","downloading","ready","installing","error"])
+export const updateStatusSchema=z.object({currentVersion:z.string(),channel:updateChannelSchema,autoDownload:z.boolean(),phase:updatePhaseSchema,availableVersion:z.string(),releaseNotesUrl:z.string(),downloadedBytes:z.number(),totalBytes:z.number(),lastCheckedAt:z.string(),lastError:z.string(),preview:z.boolean(),canInstall:z.boolean()})
+export type UpdateStatus=z.infer<typeof updateStatusSchema>
+export interface UpdatePreferencesInput { channel:z.infer<typeof updateChannelSchema>; autoDownload:boolean }
 
 export interface CreateDownloadInput {
   url: string
@@ -242,6 +252,11 @@ export async function saveSiteProfile(input:SaveSiteProfileInput):Promise<SitePr
 export async function deleteSiteProfile(id:string):Promise<void>{await invokeDeleteSiteProfile(id)}
 export async function clearSiteProfileSecrets(id:string):Promise<void>{await invokeClearSiteProfileSecrets(id)}
 export async function clearPrivateData():Promise<void>{await invokeClearPrivateData()}
+export async function getUpdateStatus():Promise<UpdateStatus>{return updateStatusSchema.parse(await invokeGetUpdateStatus())}
+export async function saveUpdatePreferences(input:UpdatePreferencesInput):Promise<UpdateStatus>{return updateStatusSchema.parse(await invokeSaveUpdatePreferences(input))}
+export async function checkForUpdates():Promise<UpdateStatus>{return updateStatusSchema.parse(await invokeCheckForUpdates())}
+export async function downloadUpdate():Promise<UpdateStatus>{return updateStatusSchema.parse(await invokeDownloadUpdate())}
+export async function installPreparedUpdate(confirmPreview:boolean):Promise<void>{await invokeInstallPreparedUpdate(confirmPreview)}
 
 export async function listDownloads(): Promise<DownloadItem[]> {
   return z.array(downloadSchema).parse(await invokeListDownloads())

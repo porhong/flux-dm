@@ -6,11 +6,13 @@ import { useUIStore } from "@/stores/ui-store"
 
 import App from "./App"
 
-const { cancelDownloadMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, healthCheckMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
+const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, getUpdateStatusMock, healthCheckMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
   cancelDownloadMock: vi.fn(),
+	checkForUpdatesMock: vi.fn(),
   confirmBrowserDownloadMock: vi.fn(),
   defaultDownloadDirectoryMock: vi.fn(),
   discardBrowserDownloadMock: vi.fn(),
+	getUpdateStatusMock: vi.fn(),
   healthCheckMock: vi.fn(),
   listDownloadsMock: vi.fn(),
   listPendingBrowserDownloadsMock: vi.fn(),
@@ -29,9 +31,11 @@ vi.mock("@/lib/backend", async (importOriginal) => {
   return {
     ...actual,
     cancelDownload: cancelDownloadMock,
+		checkForUpdates: checkForUpdatesMock,
     confirmBrowserDownload: confirmBrowserDownloadMock,
     defaultDownloadDirectory: defaultDownloadDirectoryMock,
     discardBrowserDownload: discardBrowserDownloadMock,
+		getUpdateStatus: getUpdateStatusMock,
     healthCheck: healthCheckMock,
     listDownloads: listDownloadsMock,
     listPendingBrowserDownloads: listPendingBrowserDownloadsMock,
@@ -60,6 +64,8 @@ describe("App", () => {
     confirmBrowserDownloadMock.mockResolvedValue({ id: "browser-download" })
     defaultDownloadDirectoryMock.mockResolvedValue("C:\\Users\\test\\Downloads")
     discardBrowserDownloadMock.mockResolvedValue(undefined)
+		getUpdateStatusMock.mockResolvedValue(updateStatusFixture())
+		checkForUpdatesMock.mockResolvedValue(updateStatusFixture({ phase: "available", availableVersion: "1.1.0" }))
     selectDestinationDirectoryMock.mockResolvedValue("")
     healthCheckMock.mockResolvedValue({
       status: "ok",
@@ -271,6 +277,17 @@ describe("App", () => {
     expect(screen.getByRole("dialog", { name: "Download properties" })).toBeInTheDocument()
   })
 
+	it("shows and manually checks application updates from Settings", async () => {
+		const user = userEvent.setup()
+		render(<App />)
+		await user.click(screen.getByRole("button", { name: "Settings" }))
+		expect(await screen.findByRole("region", { name: "Application updates" })).toBeInTheDocument()
+		expect(screen.getByText("FluxDM 1.0.0")).toBeInTheDocument()
+		await user.click(screen.getByRole("button", { name: "Check now" }))
+		await waitFor(() => expect(checkForUpdatesMock).toHaveBeenCalledOnce())
+		expect(await screen.findByText("FluxDM 1.1.0 is available")).toBeInTheDocument()
+	})
+
   it("opens a completed file only after an explicit row action", async () => {
     const user = userEvent.setup()
     listDownloadsMock.mockResolvedValue([downloadFixture({ id: "completed", fileName: "report.pdf", state: "completed" })])
@@ -352,4 +369,8 @@ function downloadFixture(overrides: Partial<import("@/lib/backend").DownloadItem
 	siteProfileId: "",
     ...overrides,
   }
+}
+
+function updateStatusFixture(overrides: Partial<import("@/lib/backend").UpdateStatus> = {}): import("@/lib/backend").UpdateStatus {
+	return { currentVersion: "1.0.0", channel: "stable", autoDownload: true, phase: "idle", availableVersion: "", releaseNotesUrl: "", downloadedBytes: 0, totalBytes: 0, lastCheckedAt: "", lastError: "", preview: false, canInstall: false, ...overrides }
 }

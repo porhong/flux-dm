@@ -124,6 +124,7 @@ Section
     !insertmacro wails.files
 
     File /oname=FluxDM.NativeHost.exe "..\..\bin\FluxDM.NativeHost.exe"
+    File /oname=FluxDM.UpdateLauncher.exe "..\..\bin\FluxDM.UpdateLauncher.exe"
     SetOutPath "$INSTDIR\browser-extension"
     File /r "..\..\..\browser-extension\*.*"
     SetOutPath $INSTDIR

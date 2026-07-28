@@ -8,6 +8,7 @@ import { DownloadsSection } from "@/features/downloads/downloads-section"
 import { OrganizationSection } from "@/features/organization/organization-section"
 import { SchedulerSection } from "@/features/scheduler/scheduler-section"
 import { SiteProfiles } from "@/features/settings/site-profiles"
+import { UpdateSettings } from "@/features/settings/update-settings"
 import { clearPrivateData, setGlobalBandwidthLimit, type HealthStatus } from "@/lib/backend"
 import { type AppSection, useUIStore } from "@/stores/ui-store"
 
@@ -74,6 +75,7 @@ function SettingsSection() {
           <ol className="mt-3 list-decimal space-y-1 pl-5 text-xs text-slate-400"><li>Installed release: open <strong>FluxDM Browser Extension Setup</strong> from the Start menu. Development build: run <code>scripts\install-browser-integration.ps1</code>.</li><li>Enable browser Developer mode and load the packaged <code>browser-extension</code> folder as an unpacked extension.</li><li>Open Extension options and select Test connection; it reports Connected only after the desktop bridge replies.</li></ol>
         </div>
         <SiteProfiles />
+		<UpdateSettings />
 		<div className="mt-4 max-w-4xl rounded-xl border border-red-400/15 bg-red-400/[0.03] p-4"><h3 className="text-sm font-medium text-red-100">Privacy reset</h3><p className="mt-1 text-xs text-slate-500">Clears stored credentials, schedule execution history, terminal download history, and local logs. Downloaded files are never deleted.</p><Button className="mt-3" variant="destructive" onClick={()=>{if(window.confirm("Clear FluxDM private data? Downloaded files will remain.")){void clearPrivateData().then(()=>setPrivacyStatus("Private data cleared. Downloaded files were kept.")).catch(()=>setPrivacyStatus("Could not clear private data."))}}}>Clear private data</Button>{privacyStatus&&<p className="mt-2 text-xs text-slate-400" role="status">{privacyStatus}</p>}</div>
       </div>
     </Panel>

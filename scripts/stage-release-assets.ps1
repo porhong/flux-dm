@@ -13,7 +13,9 @@ param(
 
   [string]$OutputDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'build\release'),
 
-  [switch]$Signed
+  [switch]$Signed,
+
+  [string]$UpdateManifestPrivateKey
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,6 +40,8 @@ $releaseExtension = Join-Path $output $extensionName
 $extensionChecksumPath = "$releaseExtension.sha256"
 $sumsPath = Join-Path $output 'SHA256SUMS.txt'
 $manifestPath = Join-Path $output 'release-manifest.json'
+$updateManifestPath = Join-Path $output 'update-manifest.json'
+$updateSignaturePath = Join-Path $output 'update-manifest.sig'
 
 Copy-Item -LiteralPath $installer -Destination $releaseInstaller -Force
 Copy-Item -LiteralPath $extensionPackage -Destination $releaseExtension -Force
@@ -66,6 +70,26 @@ $extensionSHA256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $releaseExtensio
   )
 } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 -LiteralPath $manifestPath
 
+$signingKey = if ($UpdateManifestPrivateKey) { $UpdateManifestPrivateKey } else { $env:FLUXDM_UPDATE_MANIFEST_PRIVATE_KEY }
+if ($signingKey) {
+  $channel = if ($Version -match '-rc\.') { 'preview' } else { 'stable' }
+  [ordered]@{
+    version = $Version
+    productVersion = $ProductVersion
+    channel = $channel
+    signed = [bool]$Signed
+    minimumVersion = ''
+    releaseNotesUrl = "https://github.com/porhong/flux-dm/releases/tag/v$Version"
+    installer = [ordered]@{ file = $installerName; sha256 = $sha256; bytes = (Get-Item -LiteralPath $releaseInstaller).Length }
+  } | ConvertTo-Json -Depth 4 -Compress | Set-Content -Encoding utf8 -NoNewline -LiteralPath $updateManifestPath
+  $previousKey = $env:FLUXDM_UPDATE_MANIFEST_PRIVATE_KEY
+  try {
+    $env:FLUXDM_UPDATE_MANIFEST_PRIVATE_KEY = $signingKey
+    go run .\cmd\fluxdm-update-manifest-signer -input $updateManifestPath -output $updateSignaturePath
+    if ($LASTEXITCODE) { throw 'Update manifest signing failed.' }
+  } finally { $env:FLUXDM_UPDATE_MANIFEST_PRIVATE_KEY = $previousKey }
+}
+
 [ordered]@{
   installer = $releaseInstaller
   checksum = $checksumPath
@@ -73,4 +97,6 @@ $extensionSHA256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $releaseExtensio
   extensionChecksum = $extensionChecksumPath
   checksums = $sumsPath
   manifest = $manifestPath
+  updateManifest = if (Test-Path -LiteralPath $updateManifestPath) { $updateManifestPath } else { '' }
+  updateSignature = if (Test-Path -LiteralPath $updateSignaturePath) { $updateSignaturePath } else { '' }
 } | ConvertTo-Json -Depth 2

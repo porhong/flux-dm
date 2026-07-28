@@ -22,6 +22,7 @@ import (
 	"github.com/fluxdm/fluxdm/internal/secrets"
 	"github.com/fluxdm/fluxdm/internal/siteprofile"
 	"github.com/fluxdm/fluxdm/internal/transport"
+	"github.com/fluxdm/fluxdm/internal/update"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -41,6 +42,7 @@ type App struct {
 	browserBridge *browserintegration.Server
 	pending       *browserintegration.PendingStore
 	siteProfiles  *application.SiteProfileService
+	updates       *application.UpdateService
 	forceQuit     atomic.Bool
 	trayMu        sync.Mutex
 	trayStarted   bool
@@ -107,6 +109,7 @@ func (a *App) startup(ctx context.Context) {
 		runtime.WindowUnminimise(ctx)
 		runtime.WindowShow(ctx)
 	})
+	a.bus.Subscribe(events.UpdateChanged, func(event events.Event) { runtime.EventsEmit(ctx, "update:changed", event.Data) })
 	httpClient := transport.NewHTTPClient()
 	organizationRepository := database.Organization()
 	a.organization = application.NewOrganizationService(organizationRepository, database.Downloads())
@@ -130,6 +133,29 @@ func (a *App) startup(ctx context.Context) {
 		a.browserBridge = bridge
 	}
 	a.schedules = application.NewSchedulerService(ctx, database.Scheduler(), a, organizationRepository)
+	if stableKey, previewKey, keyErr := application.UpdatePublicKeys(); keyErr != nil {
+		a.logger.Error("updates disabled: signing keys are not configured", map[string]any{"error": keyErr.Error()})
+	} else if executable, executableErr := os.Executable(); executableErr != nil {
+		a.logger.Error("updates disabled: executable path unavailable", map[string]any{"error": executableErr.Error()})
+	} else {
+		manager, updateErr := update.NewManager(update.Config{
+			Repository: "porhong/flux-dm", CacheDir: filepath.Join(a.paths.DataDir, "updates"), CurrentVersion: application.ReleaseVersion,
+			StablePublicKey: stableKey, PreviewPublicKey: previewKey, HTTPClient: transport.NewHTTPClient(), Verifier: platformwindows.AuthenticodeVerifier{},
+			Launcher: platformwindows.UpdateLauncher{HelperPath: filepath.Join(filepath.Dir(executable), "FluxDM.UpdateLauncher.exe"), RestartPath: executable, CacheDir: filepath.Join(a.paths.DataDir, "updates", "launcher")},
+		}, database.Updates())
+		if updateErr != nil {
+			a.logger.Error("updates disabled", map[string]any{"error": updateErr.Error()})
+		} else {
+			a.updates = application.NewUpdateService(manager)
+			manager.SetNotifier(func(status update.Status) {
+				a.bus.Publish(events.Event{Type: events.UpdateChanged, Data: application.UpdateDTO{CurrentVersion: status.CurrentVersion, Channel: status.Channel, AutoDownload: status.AutoDownload, Phase: status.Phase, AvailableVersion: status.AvailableVersion, ReleaseNotesURL: status.ReleaseNotesURL, DownloadedBytes: status.DownloadedBytes, TotalBytes: status.TotalBytes, LastCheckedAt: status.LastCheckedAt, LastError: status.LastError, Preview: status.Preview, CanInstall: status.CanInstall}})
+			})
+			if _, loadErr := a.updates.Load(ctx); loadErr != nil {
+				a.logger.Error("update state load failed", map[string]any{"error": loadErr.Error()})
+			}
+			manager.Start(ctx)
+		}
+	}
 	a.bus.Publish(events.Event{Type: events.AppReady, Message: "Backend services are ready"})
 	a.logger.Info("application started", map[string]any{"version": application.Version})
 }
@@ -140,6 +166,10 @@ func (a *App) shutdown(_ context.Context) {
 	cancelTrayShutdown()
 	if a.schedules != nil {
 		a.schedules.Close()
+	}
+	if a.updates != nil {
+		a.updates.Close()
+		a.updates = nil
 	}
 	if a.browserBridge != nil {
 		closeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -574,6 +604,46 @@ func (a *App) DefaultDownloadDirectory() (string, error) {
 		return "", application.NewError(application.ErrInternal, "Could not prepare the default Downloads folder.", err)
 	}
 	return directory, nil
+}
+
+func (a *App) GetUpdateStatus() (application.UpdateDTO, error) {
+	if a.updates == nil {
+		return application.UpdateDTO{}, application.NewError(application.ErrUnavailable, "Updates are not configured for this build.", nil)
+	}
+	return a.updates.Status(), nil
+}
+
+func (a *App) SaveUpdatePreferences(input application.UpdatePreferencesInput) (application.UpdateDTO, error) {
+	if a.updates == nil {
+		return application.UpdateDTO{}, application.NewError(application.ErrUnavailable, "Updates are not configured for this build.", nil)
+	}
+	return a.updates.SavePreferences(a.ctx, input)
+}
+
+func (a *App) CheckForUpdates() (application.UpdateDTO, error) {
+	if a.updates == nil {
+		return application.UpdateDTO{}, application.NewError(application.ErrUnavailable, "Updates are not configured for this build.", nil)
+	}
+	return a.updates.Check(a.ctx)
+}
+
+func (a *App) DownloadUpdate() (application.UpdateDTO, error) {
+	if a.updates == nil {
+		return application.UpdateDTO{}, application.NewError(application.ErrUnavailable, "Updates are not configured for this build.", nil)
+	}
+	return a.updates.Download(a.ctx)
+}
+
+func (a *App) InstallPreparedUpdate(confirmPreview bool) error {
+	if a.updates == nil {
+		return application.NewError(application.ErrUnavailable, "Updates are not configured for this build.", nil)
+	}
+	if err := a.updates.Install(a.ctx, confirmPreview); err != nil {
+		return application.NewError(application.ErrInvalidInput, "Could not start the verified update installer.", err)
+	}
+	a.forceQuit.Store(true)
+	runtime.Quit(a.ctx)
+	return nil
 }
 
 // HealthCheck confirms that the backend and persistence layer are available.

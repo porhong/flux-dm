@@ -51,8 +51,12 @@ try {
   } finally { $zip.Dispose() }
   $privateSigningSentinel = 'do-not-publish-private-signing-data'
   [IO.File]::WriteAllText($installer, $privateSigningSentinel)
+	$keyBytes = New-Object byte[] 32
+	$keyGenerator = [Security.Cryptography.RandomNumberGenerator]::Create()
+	try { $keyGenerator.GetBytes($keyBytes) } finally { $keyGenerator.Dispose() }
+	$updateSigningKey = [Convert]::ToBase64String($keyBytes)
   $output = Join-Path $temporaryRoot 'release'
-  $staged = & "$PSScriptRoot\stage-release-assets.ps1" -Version $repositoryVersion -InstallerPath $installer -ExtensionPackagePath $extensionPackage -OutputDirectory $output -Signed | ConvertFrom-Json
+  $staged = & "$PSScriptRoot\stage-release-assets.ps1" -Version $repositoryVersion -InstallerPath $installer -ExtensionPackagePath $extensionPackage -OutputDirectory $output -Signed -UpdateManifestPrivateKey $updateSigningKey | ConvertFrom-Json
   $installerName = "FluxDM-$repositoryVersion-windows-amd64-installer.exe"
   $extensionName = "FluxDM-$repositoryVersion-browser-extension.zip"
   Assert-Equal (Split-Path -Leaf $staged.installer) $installerName 'Installer asset name is incorrect.'
@@ -68,24 +72,31 @@ try {
   Assert-True ($manifest -notmatch [regex]::Escape($privateSigningSentinel)) 'Release manifest must not contain private signing data.'
   Assert-True ($manifest -match [regex]::Escape($installerName)) 'Release manifest does not identify the versioned installer.'
   Assert-True ($manifest -match [regex]::Escape($extensionName)) 'Release manifest does not identify the versioned browser extension.'
+	Assert-True (Test-Path -LiteralPath $staged.updateManifest) 'Signed update manifest was not created.'
+	Assert-True (Test-Path -LiteralPath $staged.updateSignature) 'Signed update manifest signature was not created.'
+	$updateManifest = Get-Content -Raw -Encoding utf8 -LiteralPath $staged.updateManifest | ConvertFrom-Json
+	Assert-Equal $updateManifest.channel 'stable' 'Production update manifest must identify the stable channel.'
+	Assert-Equal $updateManifest.installer.file $installerName 'Update manifest must identify the versioned installer.'
 
   $rcOutput = Join-Path $temporaryRoot 'release-candidate'
   $rcReleaseVersion = "$repositoryVersion-rc.4"
-  $rcStaged = & "$PSScriptRoot\stage-release-assets.ps1" -Version $rcReleaseVersion -ProductVersion $repositoryVersion -InstallerPath $installer -ExtensionPackagePath $extensionPackage -OutputDirectory $rcOutput | ConvertFrom-Json
+  $rcStaged = & "$PSScriptRoot\stage-release-assets.ps1" -Version $rcReleaseVersion -ProductVersion $repositoryVersion -InstallerPath $installer -ExtensionPackagePath $extensionPackage -OutputDirectory $rcOutput -UpdateManifestPrivateKey $updateSigningKey | ConvertFrom-Json
   Assert-Equal (Split-Path -Leaf $rcStaged.installer) "FluxDM-$rcReleaseVersion-windows-amd64-installer.exe" 'Release-candidate installer asset name is incorrect.'
   $rcManifest = Get-Content -Raw -Encoding utf8 -LiteralPath $rcStaged.manifest | ConvertFrom-Json
   Assert-Equal $rcManifest.version $rcReleaseVersion 'Release-candidate manifest must identify the public release version.'
   Assert-Equal $rcManifest.productVersion $repositoryVersion 'Release-candidate manifest must identify the packaged product version.'
   Assert-True (-not $rcManifest.signed) 'Unsigned release-candidate manifest must report signed=false.'
+	$rcUpdateManifest = Get-Content -Raw -Encoding utf8 -LiteralPath $rcStaged.updateManifest | ConvertFrom-Json
+	Assert-Equal $rcUpdateManifest.channel 'preview' 'Release-candidate update manifest must identify the preview channel.'
   Assert-Throws { & "$PSScriptRoot\stage-release-assets.ps1" -Version '1.2.4-rc.1' -ProductVersion '1.2.3' -InstallerPath $installer -ExtensionPackagePath $extensionPackage -OutputDirectory (Join-Path $temporaryRoot 'invalid-release-candidate') } 'Release-candidate asset version/product mismatches must be rejected.'
 
   $workflow = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root '.github\workflows\release.yml')
-  foreach ($required in @('self-hosted', 'windows', 'fluxdm-signing', 'environment: release', 'fail_on_unmatched_files: true', 'generate_release_notes: true', 'FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe', 'FluxDM-${{ steps.version.outputs.version }}-browser-extension.zip', 'SHA256SUMS.txt', 'release-manifest.json')) {
+  foreach ($required in @('self-hosted', 'windows', 'fluxdm-signing', 'environment: release', 'fail_on_unmatched_files: true', 'generate_release_notes: true', 'FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe', 'FluxDM-${{ steps.version.outputs.version }}-browser-extension.zip', 'SHA256SUMS.txt', 'release-manifest.json', 'update-manifest.json', 'update-manifest.sig', 'FLUXDM_UPDATE_STABLE_PRIVATE_KEY')) {
     Assert-True ($workflow.Contains($required)) "Release workflow is missing required contract: $required"
   }
 
   $rcWorkflow = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root '.github\workflows\rc-release.yml')
-  foreach ($required in @("'v*-rc.*'", 'runs-on: windows-2022', 'prerelease: true', 'not Authenticode-signed', 'fail_on_unmatched_files: true', 'FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-installer.exe', 'FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip', 'SHA256SUMS.txt', 'release-manifest.json')) {
+  foreach ($required in @("'v*-rc.*'", 'runs-on: windows-2022', 'prerelease: true', 'not Authenticode-signed', 'fail_on_unmatched_files: true', 'FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-installer.exe', 'FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip', 'SHA256SUMS.txt', 'release-manifest.json', 'update-manifest.json', 'update-manifest.sig', 'FLUXDM_UPDATE_PREVIEW_PRIVATE_KEY')) {
     Assert-True ($rcWorkflow.Contains($required)) "Release-candidate workflow is missing required contract: $required"
   }
   foreach ($forbidden in @('FLUXDM_CERT_THUMBPRINT', 'FLUXDM_TIMESTAMP_URL', 'environment: release', 'fluxdm-signing')) {
@@ -101,6 +112,7 @@ try {
   $buildScript = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $PSScriptRoot 'build-release.ps1')
   Assert-True ($buildScript.Contains('$productVersion=&')) 'Release build must keep the product version separate from the release-version parameter.'
   Assert-True (-not $buildScript.Contains('$releaseVersion=&')) 'Release build must not overwrite the release-version parameter with the product version.'
+	Assert-True ($buildScript.Contains('FluxDM.UpdateLauncher.exe')) 'Release build must package the update launcher.'
 
   $installerScript = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root 'build\windows\installer\project.nsi')
   foreach ($required in @('WriteRegStr HKLM "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"', 'WriteRegStr HKCU "Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser"', 'WriteRegStr HKCU "Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser"', 'WriteRegStr HKCU "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKLM "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKCU "Software\Google\Chrome\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKCU "Software\Microsoft\Edge\NativeMessagingHosts\com.fluxdm.browser"', 'DeleteRegKey HKCU "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.fluxdm.browser"')) {

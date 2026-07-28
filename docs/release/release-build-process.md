@@ -12,7 +12,7 @@ The signed installer is the only executable release artifact. Do not publish `Fl
 | Product version | `wails.json` `info.productVersion` must be exactly `X.Y.Z`. |
 | Production publishing workflow | `.github/workflows/release.yml`, triggered only by pushed `vX.Y.Z` tags. |
 | Signing boundary | The approved `release` GitHub Environment and the `self-hosted`, `windows`, `fluxdm-signing` runner. |
-| Published assets | Versioned installer and browser-extension ZIP, each with an adjacent `.sha256`, plus `SHA256SUMS.txt` and `release-manifest.json`. |
+| Published assets | Versioned installer and browser-extension ZIP, each with an adjacent `.sha256`, plus `SHA256SUMS.txt`, `release-manifest.json`, signed `update-manifest.json`, and `update-manifest.sig`. |
 | Release-candidate workflow | `.github/workflows/rc-release.yml`, triggered by `vX.Y.Z-rc.N` tags and always published as a prerelease. |
 | Unsigned artifacts | May be published only through the explicit release-candidate channel; they are never production releases. |
 
@@ -28,12 +28,12 @@ Use the channel that matches the artifact's trust level. A green workflow is not
 | Tag | `vX.Y.Z-rc.N`, where `N` is a new positive integer. | `vX.Y.Z`, matching the product version exactly. |
 | Workflow | **unsigned Windows release candidate** (`rc-release.yml`). | **signed Windows release** (`release.yml`). |
 | Runner | GitHub-hosted `windows-2022`. | Dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. |
-| Signing | Never signed; no certificate, protected environment, or signing secrets are available. | Authenticode signing with SHA-256 and an RFC 3161 timestamp, approved through the protected `release` environment. |
+| Signing | Never Authenticode-signed; a preview-only metadata key signs its update manifest. | Authenticode signing with SHA-256 and an RFC 3161 timestamp, approved through the protected `release` environment. |
 | GitHub release type | Prerelease. | Normal release. |
 | Manifest | `version: X.Y.Z-rc.N`, `productVersion: X.Y.Z`, `signed: false`. | `version: X.Y.Z`, `productVersion: X.Y.Z`, `signed: true`. |
 | Tester/user message | Windows SmartScreen or an unknown-publisher warning is expected. Do not call it trusted or production-ready. | Verify the checksum and valid Authenticode signature before announcement. |
 
-Both channels publish exactly six custom assets: a versioned installer and browser-extension ZIP, each with an adjacent `.sha256` file, `SHA256SUMS.txt`, and `release-manifest.json`. GitHub also supplies source archives separately. Missing either artifact or checksum file is a failed release, even if a GitHub Release page was created. The installer must be installed before the extension can connect through native messaging.
+Both channels publish eight custom assets: a versioned installer and browser-extension ZIP, each with an adjacent `.sha256` file, `SHA256SUMS.txt`, `release-manifest.json`, `update-manifest.json`, and `update-manifest.sig`. GitHub also supplies source archives separately. Missing either installer, checksum, or signed update metadata file is a failed release, even if a GitHub Release page was created.
 
 ## Unsigned release candidates while signing is unavailable
 
@@ -87,7 +87,7 @@ Before sharing it, verify all of the following in the workflow and GitHub Releas
 
 1. The workflow ref is exactly `vX.Y.Z-rc.N` and its commit SHA is the commit recorded above.
 2. The workflow's staging output names the installer `FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe`.
-3. The GitHub prerelease contains all six custom assets:
+3. The GitHub prerelease contains all eight custom assets:
 
    ```text
    FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe
@@ -96,6 +96,8 @@ Before sharing it, verify all of the following in the workflow and GitHub Releas
    FluxDM-X.Y.Z-rc.N-browser-extension.zip.sha256
    SHA256SUMS.txt
    release-manifest.json
+   update-manifest.json
+   update-manifest.sig
    ```
 
 4. `release-manifest.json` identifies the RC version, the numeric product version, `signed: false`, and both release artifacts.
@@ -296,7 +298,7 @@ At minimum, cover interactive and silent installation, desktop startup, browser 
 After the workflow succeeds:
 
 1. Confirm the GitHub Release is non-draft, targets the expected tag, and has generated release notes.
-2. Confirm it exposes only the six approved assets listed above.
+2. Confirm it exposes only the eight approved assets listed above.
 3. Perform the public download/hash/signature verification from a clean machine. The browser-extension ZIP is verified by hash; the installer is additionally verified by Authenticode signature.
 4. Link the workflow run, smoke-test evidence, checksums, and release notes in the release ticket.
 5. Announce the release only after those checks are complete.

@@ -4,6 +4,7 @@ param(
   [Parameter(Mandatory)][string]$SevenZipPath,
   [string]$AppPath,
   [string]$NativeHostPath,
+  [string]$UpdateLauncherPath,
   [string]$ExtensionPath,
   [string]$Version,
   [switch]$RequireSignatures
@@ -14,12 +15,14 @@ if (-not $Version) { $Version = & "$PSScriptRoot\get-product-version.ps1" } else
 if (-not $InstallerPath) { $InstallerPath = Join-Path $root 'build\bin\FluxDM-amd64-installer.exe' }
 if (-not $AppPath) { $AppPath = Join-Path $root 'build\bin\FluxDM.exe' }
 if (-not $NativeHostPath) { $NativeHostPath = Join-Path $root 'build\bin\FluxDM.NativeHost.exe' }
+if (-not $UpdateLauncherPath) { $UpdateLauncherPath = Join-Path $root 'build\bin\FluxDM.UpdateLauncher.exe' }
 if (-not $ExtensionPath) { $ExtensionPath = Join-Path $root 'browser-extension' }
 
 $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
 $sevenZip = (Resolve-Path -LiteralPath $SevenZipPath).Path
 $app = (Resolve-Path -LiteralPath $AppPath).Path
 $nativeHost = (Resolve-Path -LiteralPath $NativeHostPath).Path
+$updateLauncher = (Resolve-Path -LiteralPath $UpdateLauncherPath).Path
 $extension = (Resolve-Path -LiteralPath $ExtensionPath).Path
 $temporaryRoot = Join-Path $env:TEMP ('fluxdm-installer-payload-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
@@ -37,6 +40,7 @@ try {
   $required = @(
     'FluxDM.exe',
     'FluxDM.NativeHost.exe',
+    'FluxDM.UpdateLauncher.exe',
     'uninstall.exe',
     'browser-extension\manifest.json',
     'browser-extension\service-worker.js',
@@ -48,7 +52,7 @@ try {
   }
 
   $comparisons = [Collections.Generic.List[object]]::new()
-  foreach ($pair in @(@('FluxDM.exe',$app),@('FluxDM.NativeHost.exe',$nativeHost))) {
+  foreach ($pair in @(@('FluxDM.exe',$app),@('FluxDM.NativeHost.exe',$nativeHost),@('FluxDM.UpdateLauncher.exe',$updateLauncher))) {
     $packagedPath = Join-Path $temporaryRoot $pair[0]
     $packagedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $packagedPath).Hash
     $sourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $pair[1]).Hash
@@ -78,12 +82,14 @@ try {
     installer = (Get-AuthenticodeSignature -LiteralPath $installer).Status.ToString()
     app = (Get-AuthenticodeSignature -LiteralPath (Join-Path $temporaryRoot 'FluxDM.exe')).Status.ToString()
     nativeHost = (Get-AuthenticodeSignature -LiteralPath (Join-Path $temporaryRoot 'FluxDM.NativeHost.exe')).Status.ToString()
+    updateLauncher = (Get-AuthenticodeSignature -LiteralPath (Join-Path $temporaryRoot 'FluxDM.UpdateLauncher.exe')).Status.ToString()
     uninstaller = (Get-AuthenticodeSignature -LiteralPath (Join-Path $temporaryRoot 'uninstall.exe')).Status.ToString()
   }
   if ($RequireSignatures) {
     $null = Assert-ValidSignature $installer 'Installer'
     $null = Assert-ValidSignature (Join-Path $temporaryRoot 'FluxDM.exe') 'Packaged desktop executable'
     $null = Assert-ValidSignature (Join-Path $temporaryRoot 'FluxDM.NativeHost.exe') 'Packaged native host'
+    $null = Assert-ValidSignature (Join-Path $temporaryRoot 'FluxDM.UpdateLauncher.exe') 'Packaged update launcher'
     $null = Assert-ValidSignature (Join-Path $temporaryRoot 'uninstall.exe') 'Embedded uninstaller'
   }
 

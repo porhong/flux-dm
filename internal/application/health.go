@@ -1,6 +1,8 @@
 package application
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
@@ -10,6 +12,27 @@ import (
 )
 
 const Version = "1.0.0"
+
+// ReleaseVersion is overridden by release builds and retains the RC suffix
+// that Windows file-version metadata cannot represent.
+var ReleaseVersion = Version
+
+// Update public keys are injected at build time. Keeping only public keys in
+// the binary permits offline verification without shipping signing secrets.
+var StableUpdatePublicKeyBase64 string
+var PreviewUpdatePublicKeyBase64 string
+
+func UpdatePublicKeys() (ed25519.PublicKey, ed25519.PublicKey, error) {
+	stable, err := base64.StdEncoding.DecodeString(StableUpdatePublicKeyBase64)
+	if err != nil || len(stable) != ed25519.PublicKeySize {
+		return nil, nil, errors.New("stable update public key is not configured")
+	}
+	preview, err := base64.StdEncoding.DecodeString(PreviewUpdatePublicKeyBase64)
+	if err != nil || len(preview) != ed25519.PublicKeySize {
+		return nil, nil, errors.New("preview update public key is not configured")
+	}
+	return ed25519.PublicKey(stable), ed25519.PublicKey(preview), nil
+}
 
 type Paths struct {
 	DataDir string
@@ -60,7 +83,7 @@ type ReadyEvent struct {
 func NewHealthStatus() HealthStatus {
 	return HealthStatus{
 		Status:    "ok",
-		Version:   Version,
+		Version:   ReleaseVersion,
 		Platform:  runtime.GOOS + "/" + runtime.GOARCH,
 		CheckedAt: time.Now().UTC().Format(time.RFC3339Nano),
 	}

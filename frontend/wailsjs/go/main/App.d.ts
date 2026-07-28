@@ -10,6 +10,8 @@ export function AssignDownloads(arg1:application.AssignDownloadsInput):Promise<v
 
 export function CancelDownload(arg1:string):Promise<void>;
 
+export function CheckForUpdates():Promise<application.UpdateDTO>;
+
 export function ClearPrivateData():Promise<void>;
 
 export function ClearSiteProfileSecrets(arg1:string):Promise<void>;
@@ -32,13 +34,19 @@ export function DeleteSiteProfile(arg1:string):Promise<void>;
 
 export function DiscardBrowserDownload(arg1:string):Promise<void>;
 
+export function DownloadUpdate():Promise<application.UpdateDTO>;
+
 export function ExecutePostAction(arg1:context.Context,arg2:scheduler.Schedule):Promise<void>;
 
 export function ExecuteSchedule(arg1:context.Context,arg2:scheduler.Schedule):Promise<void>;
 
 export function GetDownload(arg1:string):Promise<application.DownloadDTO>;
 
+export function GetUpdateStatus():Promise<application.UpdateDTO>;
+
 export function HealthCheck():Promise<application.HealthStatus>;
+
+export function InstallPreparedUpdate(arg1:boolean):Promise<void>;
 
 export function ListCategories():Promise<Array<organization.Category>>;
 
@@ -83,6 +91,8 @@ export function SaveQueue(arg1:application.SaveQueueInput):Promise<organization.
 export function SaveSchedule(arg1:application.SaveScheduleInput):Promise<scheduler.Schedule>;
 
 export function SaveSiteProfile(arg1:application.SaveSiteProfileInput):Promise<siteprofile.Profile>;
+
+export function SaveUpdatePreferences(arg1:application.UpdatePreferencesInput):Promise<application.UpdateDTO>;
 
 export function SelectDestinationDirectory():Promise<string>;
 

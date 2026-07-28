@@ -349,6 +349,54 @@ export namespace application {
 	        this.proxyPassword = source["proxyPassword"];
 	    }
 	}
+	export class UpdateDTO {
+	    currentVersion: string;
+	    channel: string;
+	    autoDownload: boolean;
+	    phase: string;
+	    availableVersion: string;
+	    releaseNotesUrl: string;
+	    downloadedBytes: number;
+	    totalBytes: number;
+	    lastCheckedAt: string;
+	    lastError: string;
+	    preview: boolean;
+	    canInstall: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new UpdateDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.currentVersion = source["currentVersion"];
+	        this.channel = source["channel"];
+	        this.autoDownload = source["autoDownload"];
+	        this.phase = source["phase"];
+	        this.availableVersion = source["availableVersion"];
+	        this.releaseNotesUrl = source["releaseNotesUrl"];
+	        this.downloadedBytes = source["downloadedBytes"];
+	        this.totalBytes = source["totalBytes"];
+	        this.lastCheckedAt = source["lastCheckedAt"];
+	        this.lastError = source["lastError"];
+	        this.preview = source["preview"];
+	        this.canInstall = source["canInstall"];
+	    }
+	}
+	export class UpdatePreferencesInput {
+	    channel: string;
+	    autoDownload: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new UpdatePreferencesInput(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.channel = source["channel"];
+	        this.autoDownload = source["autoDownload"];
+	    }
+	}
 
 }
 
@@ -596,4 +644,3 @@ export namespace siteprofile {
 	}
 
 }
-

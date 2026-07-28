@@ -9,6 +9,7 @@ const (
 	DownloadProgress  Type = "download.progress"
 	DownloadUpdated   Type = "download.updated"
 	DownloadRequested Type = "download.requested"
+	UpdateChanged     Type = "update.changed"
 )
 
 type Event struct {
