@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useUIStore } from "@/stores/ui-store"
 
 import App from "./App"
+import { BrowserConfirmationSurface } from "./features/downloads/browser-confirmation-surface"
 
-const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, getUpdateStatusMock, healthCheckMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
+const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, getUpdateStatusMock, healthCheckMock, hideBrowserConfirmationMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
   cancelDownloadMock: vi.fn(),
 	checkForUpdatesMock: vi.fn(),
   confirmBrowserDownloadMock: vi.fn(),
@@ -14,6 +15,7 @@ const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, def
   discardBrowserDownloadMock: vi.fn(),
 	getUpdateStatusMock: vi.fn(),
   healthCheckMock: vi.fn(),
+	 hideBrowserConfirmationMock: vi.fn(),
   listDownloadsMock: vi.fn(),
   listPendingBrowserDownloadsMock: vi.fn(),
   openCompletedDownloadFileMock: vi.fn(),
@@ -37,6 +39,7 @@ vi.mock("@/lib/backend", async (importOriginal) => {
     discardBrowserDownload: discardBrowserDownloadMock,
 		getUpdateStatus: getUpdateStatusMock,
     healthCheck: healthCheckMock,
+		hideBrowserConfirmation: hideBrowserConfirmationMock,
     listDownloads: listDownloadsMock,
     listPendingBrowserDownloads: listPendingBrowserDownloadsMock,
     openCompletedDownloadFile: openCompletedDownloadFileMock,
@@ -73,6 +76,7 @@ describe("App", () => {
       platform: "windows/amd64",
       checkedAt: "2026-01-01T00:00:00Z",
     })
+		hideBrowserConfirmationMock.mockResolvedValue(undefined)
   })
 
   afterEach(cleanup)
@@ -100,7 +104,7 @@ describe("App", () => {
       pendingId: "browser-pending-1", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
     }])
 
-    render(<App />)
+    render(<BrowserConfirmationSurface />)
 
     expect(await screen.findByRole("dialog", { name: "Start this download?" })).toBeInTheDocument()
     expect(screen.getByText("archive.zip")).toBeInTheDocument()
@@ -117,7 +121,7 @@ describe("App", () => {
     }])
     startDownloadMock.mockResolvedValue(undefined)
 
-    render(<App />)
+    render(<BrowserConfirmationSurface />)
 
     await screen.findByRole("dialog", { name: "Start this download?" })
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
@@ -141,7 +145,7 @@ describe("App", () => {
     selectDestinationDirectoryMock.mockResolvedValue("D:\\Downloads")
     startDownloadMock.mockResolvedValue(undefined)
 
-    render(<App />)
+    render(<BrowserConfirmationSurface />)
 
     await screen.findByRole("dialog", { name: "Start this download?" })
     await user.click(screen.getByRole("button", { name: "Browse destination folder" }))
@@ -160,7 +164,7 @@ describe("App", () => {
       pendingId: "browser-pending-failure", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
     }])
 
-    render(<App />)
+    render(<BrowserConfirmationSurface />)
 
     await screen.findByRole("dialog", { name: "Start this download?" })
     expect(await screen.findByText("FluxDM could not inspect that URL.")).toBeInTheDocument()

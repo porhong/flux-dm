@@ -89,10 +89,10 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
     }
   }
 
-  const cancel = () => {
+  const cancel = async () => {
     if (request && !resolved) {
       setResolved(true)
-      void discardBrowserDownload(request.pendingId)
+      await discardBrowserDownload(request.pendingId)
     }
     onClose()
   }
@@ -101,7 +101,7 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
   const canStart = !submitting && !probing && probe !== null && destinationDir.trim() !== "" && !resolved
 
   return (
-    <Dialog open={request !== null} onOpenChange={(next) => { if (!next) cancel() }}>
+    <Dialog open={request !== null} onOpenChange={(next) => { if (!next) void cancel() }}>
       <DialogContent className="max-w-md gap-5 p-5">
         <DialogHeader>
           <DialogTitle>Start this download?</DialogTitle>
@@ -136,7 +136,7 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
         </div>
 
         <DialogFooter className="min-w-0">
-          <Button type="button" variant="ghost" onClick={cancel} disabled={submitting}>{resolved ? "Close" : "Cancel"}</Button>
+          <Button type="button" variant="ghost" onClick={() => void cancel()} disabled={submitting}>{resolved ? "Close" : "Cancel"}</Button>
           <Button type="button" onClick={() => void start()} disabled={!canStart}>
             {(submitting || probing) && <LoaderCircle className="size-4 animate-spin" />} Start download
           </Button>

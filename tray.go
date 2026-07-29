@@ -6,7 +6,6 @@ import (
 	goruntime "runtime"
 
 	"github.com/getlantern/systray"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed build/windows/icon.ico
@@ -56,8 +55,7 @@ func (a *App) runTray(ctx context.Context, stop <-chan struct{}, ready chan<- st
 				case <-stop:
 					return
 				case <-show.ClickedCh:
-					runtime.WindowShow(ctx)
-					runtime.WindowUnminimise(ctx)
+					a.showMainWindow()
 				}
 			}
 		}()
@@ -69,9 +67,8 @@ func (a *App) runTray(ctx context.Context, stop <-chan struct{}, ready chan<- st
 				case <-stop:
 					return
 				case <-updates.ClickedCh:
-					runtime.WindowShow(ctx)
-					runtime.WindowUnminimise(ctx)
-					runtime.EventsEmit(ctx, "tray:updates")
+					a.showMainWindow()
+					a.emit("tray:updates", nil)
 				}
 			}
 		}()
@@ -83,9 +80,8 @@ func (a *App) runTray(ctx context.Context, stop <-chan struct{}, ready chan<- st
 				case <-stop:
 					return
 				case <-add.ClickedCh:
-					runtime.WindowShow(ctx)
-					runtime.WindowUnminimise(ctx)
-					runtime.EventsEmit(ctx, "tray:add-download")
+					a.showMainWindow()
+					a.emit("tray:add-download", nil)
 				}
 			}
 		}()
@@ -95,7 +91,9 @@ func (a *App) runTray(ctx context.Context, stop <-chan struct{}, ready chan<- st
 			case <-stop:
 			case <-exit.ClickedCh:
 				a.forceQuit.Store(true)
-				runtime.Quit(ctx)
+				if a.desktop != nil {
+					a.desktop.Quit()
+				}
 			}
 		}()
 		close(ready)

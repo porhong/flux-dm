@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { Activity, ArrowDownToLine, Ban, Download, ExternalLink, FolderOpen, Gauge, Info, LoaderCircle, MoreHorizontal, Pause, Pencil, Play, RefreshCw, RotateCcw, Search, Trash2 } from "lucide-react"
-import { EventsOff, EventsOn } from "../../../wailsjs/runtime/runtime"
+import { Events } from "@wailsio/runtime"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -45,18 +45,18 @@ export function DownloadsSection({ health, hasBackendError, addDialogOpen, onAdd
     let mounted = true
     void listDownloads().then((items) => { if (mounted) setDownloads(items) }).catch(() => { if (mounted) setLoadError("Could not load download history.") })
     void Promise.all([listCategories(), listQueues()]).then(([nextCategories, nextQueues]) => { if (mounted) { setCategories(nextCategories); setQueues(nextQueues) } }).catch(() => undefined)
-    EventsOn("download:updated", (payload: unknown) => {
+    Events.On("download:updated", (payload: unknown) => {
       const parsed = downloadSchema.safeParse(payload)
       if (parsed.success) upsertDownload(setDownloads, parsed.data)
     })
-    EventsOn("download:progress", (payload: unknown) => {
+    Events.On("download:progress", (payload: unknown) => {
       const parsed = progressSchema.safeParse(payload)
       if (parsed.success) publishProgress(parsed.data)
     })
     return () => {
       mounted = false
-      EventsOff("download:updated")
-      EventsOff("download:progress")
+      Events.Off("download:updated")
+      Events.Off("download:progress")
     }
   }, [])
 

@@ -12,15 +12,17 @@ import (
 	"github.com/fluxdm/fluxdm/internal/application"
 	fluxlog "github.com/fluxdm/fluxdm/internal/logging"
 	platformwindows "github.com/fluxdm/fluxdm/internal/platform/windows"
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	wails "github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:dist
 var assets embed.FS
 
+const browserHandoffLaunchArg = "--browser-handoff"
+
 func main() {
+	coldBrowserHandoff := len(os.Args) == 2 && os.Args[1] == browserHandoffLaunchArg
 	var activator *platformwindows.InstanceActivator
 	if !isBindingGeneration() {
 		var err error
@@ -30,7 +32,6 @@ func main() {
 			os.Exit(1)
 		}
 		defer func() { _ = activator.Close() }()
-
 		instanceLock, err := platformwindows.AcquireInstanceLock("Local\\FluxDM.Desktop.Instance")
 		if errors.Is(err, platformwindows.ErrAlreadyRunning) {
 			_ = activator.Notify()
@@ -52,7 +53,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, "FluxDM could not create its data directory")
 		os.Exit(1)
 	}
-
 	logger, closeLog, err := fluxlog.New(filepath.Join(paths.DataDir, "fluxdm.log"))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "FluxDM could not initialize logging")
@@ -65,34 +65,34 @@ func main() {
 		}
 	}()
 
-	app := NewApp(paths, logger)
-	if err := wails.Run(&options.App{
-		Title:     "FluxDM",
-		Width:     1180,
-		Height:    760,
-		MinWidth:  840,
-		MinHeight: 600,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
-		},
-		BackgroundColour: &options.RGBA{R: 8, G: 15, B: 29, A: 1},
-		OnStartup: func(ctx context.Context) {
-			app.startup(ctx)
-			if activator != nil {
-				if err := activator.Start(app.showWindow); err != nil {
-					logger.Error("instance activation listener failed to start", map[string]any{"error": err.Error()})
-				}
-			}
-		},
-		OnShutdown: func(ctx context.Context) {
+	backend := NewApp(paths, logger)
+	desktop := wails.New(wails.Options{
+		Name: "FluxDM", Description: "High-performance Windows download manager",
+		Windows:  wails.WindowsOptions{DisableQuitOnLastWindowClosed: true},
+		Assets:   wails.AssetOptions{Handler: wails.BundledAssetFileServer(assets)},
+		Services: []wails.Service{wails.NewService(backend)},
+		OnShutdown: func() {
 			if activator != nil {
 				_ = activator.Close()
 			}
-			app.shutdown(ctx)
+			backend.shutdown(context.Background())
 		},
-		OnBeforeClose: app.beforeClose,
-		Bind:          []interface{}{app},
-	}); err != nil {
+	})
+	mainWindow := desktop.Window.NewWithOptions(wails.WebviewWindowOptions{Name: "main", Title: "FluxDM", Width: 1180, Height: 760, MinWidth: 840, MinHeight: 600, Hidden: coldBrowserHandoff, URL: "/", BackgroundColour: wails.NewRGB(8, 15, 29)})
+	confirmWindow := desktop.Window.NewWithOptions(wails.WebviewWindowOptions{Name: "browser-confirmation", Title: "Start download", Width: 480, Height: 420, MinWidth: 480, MinHeight: 420, MaxWidth: 480, MaxHeight: 420, DisableResize: true, Hidden: true, URL: "/?surface=browser-confirm", BackgroundColour: wails.NewRGB(8, 15, 29)})
+	backend.setDesktop(desktop, mainWindow, confirmWindow)
+	mainWindow.RegisterHook(events.Common.WindowClosing, func(event *wails.WindowEvent) {
+		if backend.beforeClose(context.Background()) {
+			event.Cancel()
+		}
+	})
+	confirmWindow.RegisterHook(events.Common.WindowClosing, func(event *wails.WindowEvent) { confirmWindow.Hide(); event.Cancel() })
+	if activator != nil {
+		if err := activator.Start(backend.showWindow); err != nil {
+			logger.Error("instance activation listener failed to start", map[string]any{"error": err.Error()})
+		}
+	}
+	if err := desktop.Run(); err != nil {
 		logger.Error("application stopped unexpectedly", map[string]any{"error": err.Error()})
 	}
 }

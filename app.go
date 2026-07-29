@@ -23,7 +23,7 @@ import (
 	"github.com/fluxdm/fluxdm/internal/siteprofile"
 	"github.com/fluxdm/fluxdm/internal/transport"
 	"github.com/fluxdm/fluxdm/internal/update"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	wails "github.com/wailsapp/wails/v3/pkg/application"
 )
 
 const appReadyEvent = "app:ready"
@@ -31,6 +31,9 @@ const appReadyEvent = "app:ready"
 // App is the thin Wails adapter for FluxDM's application services.
 type App struct {
 	ctx           context.Context
+	desktop       *wails.App
+	mainWindow    *wails.WebviewWindow
+	confirmWindow *wails.WebviewWindow
 	paths         application.Paths
 	bus           *events.Bus
 	logger        *fluxlog.Logger
@@ -51,6 +54,43 @@ type App struct {
 	trayDone      chan struct{}
 }
 
+func (a *App) setDesktop(desktop *wails.App, mainWindow, confirmWindow *wails.WebviewWindow) {
+	a.desktop, a.mainWindow, a.confirmWindow = desktop, mainWindow, confirmWindow
+}
+
+func (a *App) emit(name string, data any) {
+	if a.desktop != nil {
+		a.desktop.Event.Emit(name, data)
+	}
+}
+func (a *App) showMainWindow() {
+	if a.mainWindow != nil {
+		a.mainWindow.Show()
+		a.mainWindow.Focus()
+	}
+}
+func (a *App) hideMainWindow() {
+	if a.mainWindow != nil {
+		a.mainWindow.Hide()
+	}
+}
+func (a *App) showConfirmationWindow() {
+	if a.confirmWindow != nil {
+		a.confirmWindow.Show()
+		a.confirmWindow.Focus()
+		a.confirmWindow.EmitEvent("browser:handoff-pending", nil)
+	}
+}
+
+// HideBrowserConfirmation is invoked only by the compact confirmation surface
+// after it has consumed the last pending browser request.
+func (a *App) HideBrowserConfirmation() error {
+	if a.confirmWindow != nil {
+		a.confirmWindow.Hide()
+	}
+	return nil
+}
+
 func NewApp(paths application.Paths, logger *fluxlog.Logger) *App {
 	return &App{
 		paths:   paths,
@@ -58,6 +98,14 @@ func NewApp(paths application.Paths, logger *fluxlog.Logger) *App {
 		logger:  logger,
 		pending: browserintegration.NewPendingStore(browserintegration.DefaultPendingTTL),
 	}
+}
+
+// ServiceStartup is the explicit Wails v3 lifecycle boundary. Application
+// services remain independent of this adapter and continue to receive the
+// cancellation-aware context created by the desktop host.
+func (a *App) ServiceStartup(ctx context.Context, _ wails.ServiceOptions) error {
+	a.startup(ctx)
+	return nil
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -72,11 +120,9 @@ func (a *App) startup(ctx context.Context) {
 	database, recovery, err := persistence.OpenRecovering(ctx, filepath.Join(a.paths.DataDir, "fluxdm.db"))
 	if err != nil {
 		a.logger.Error("database initialization failed", map[string]any{"error": err.Error()})
-		runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
-			Type:    runtime.ErrorDialog,
-			Title:   "FluxDM could not start",
-			Message: "The local database could not be initialized.",
-		})
+		if a.desktop != nil {
+			a.desktop.Dialog.Error().SetTitle("FluxDM could not start").SetMessage("The local database could not be initialized.").Show()
+		}
 		return
 	}
 	a.database = database
@@ -85,17 +131,17 @@ func (a *App) startup(ctx context.Context) {
 	}
 
 	a.bus.Subscribe(events.AppReady, func(event events.Event) {
-		runtime.EventsEmit(ctx, appReadyEvent, application.ReadyEvent{
+		a.emit(appReadyEvent, application.ReadyEvent{
 			Name:    "FluxDM",
 			Version: application.Version,
 			Message: event.Message,
 		})
 	})
 	a.bus.Subscribe(events.DownloadProgress, func(event events.Event) {
-		runtime.EventsEmit(ctx, "download:progress", event.Data)
+		a.emit("download:progress", event.Data)
 	})
 	a.bus.Subscribe(events.DownloadUpdated, func(event events.Event) {
-		runtime.EventsEmit(ctx, "download:updated", event.Data)
+		a.emit("download:updated", event.Data)
 		if dto, ok := event.Data.(application.DownloadDTO); ok && dto.State == string(download.StateCompleted) {
 			if err := platformwindows.NotifyDownloadComplete(dto.FileName); err != nil {
 				a.logger.Error("download notification failed", map[string]any{"error": err.Error()})
@@ -103,13 +149,10 @@ func (a *App) startup(ctx context.Context) {
 		}
 	})
 	a.bus.Subscribe(events.DownloadRequested, func(event events.Event) {
-		runtime.EventsEmit(ctx, "download:requested", event.Data)
-		// Restore, foreground, and focus FluxDM so the browser handoff dialog is
-		// visible even when the application was hidden or minimised.
-		runtime.WindowUnminimise(ctx)
-		runtime.WindowShow(ctx)
+		a.emit("download:requested", event.Data)
+		a.showConfirmationWindow()
 	})
-	a.bus.Subscribe(events.UpdateChanged, func(event events.Event) { runtime.EventsEmit(ctx, "update:changed", event.Data) })
+	a.bus.Subscribe(events.UpdateChanged, func(event events.Event) { a.emit("update:changed", event.Data) })
 	httpClient := transport.NewHTTPClient()
 	organizationRepository := database.Organization()
 	a.organization = application.NewOrganizationService(organizationRepository, database.Downloads())
@@ -305,7 +348,9 @@ func (a *App) ExecutePostAction(ctx context.Context, item scheduler.Schedule) er
 		return nil
 	case scheduler.PostExit:
 		a.forceQuit.Store(true)
-		runtime.Quit(a.ctx)
+		if a.desktop != nil {
+			a.desktop.Quit()
+		}
 		return nil
 	case scheduler.PostSleep:
 		return platformwindows.Sleep()
@@ -322,15 +367,14 @@ func (a *App) beforeClose(ctx context.Context) bool {
 	if a.forceQuit.Load() {
 		return false
 	}
-	runtime.WindowHide(ctx)
+	a.hideMainWindow()
 	return true
 }
 
 // showWindow restores the tray-hidden window after a second FluxDM launch.
 func (a *App) showWindow() {
 	if a.ctx != nil {
-		runtime.WindowUnminimise(a.ctx)
-		runtime.WindowShow(a.ctx)
+		a.showMainWindow()
 	}
 }
 
@@ -587,12 +631,14 @@ func (a *App) ClearPrivateData() error {
 }
 
 func (a *App) SelectDestinationDirectory() (string, error) {
-	if a.ctx == nil {
+	if a.ctx == nil || a.desktop == nil {
 		return "", application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
 	}
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Choose download folder",
-	})
+	dialog := a.desktop.Dialog.OpenFile().CanChooseDirectories(true).CanChooseFiles(false).SetTitle("Choose download folder")
+	if a.confirmWindow != nil {
+		dialog.AttachToWindow(a.confirmWindow)
+	}
+	return dialog.PromptForSingleSelection()
 }
 
 // DefaultDownloadDirectory returns the user's standard Downloads folder for
@@ -641,7 +687,9 @@ func (a *App) InstallPreparedUpdate(confirmPreview bool) error {
 		return application.NewError(application.ErrInvalidInput, "Could not start the verified update installer.", err)
 	}
 	a.forceQuit.Store(true)
-	runtime.Quit(a.ctx)
+	if a.desktop != nil {
+		a.desktop.Quit()
+	}
 	return nil
 }
 

@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react"
 import { Plus } from "lucide-react"
-import { EventsOff, EventsOn } from "../wailsjs/runtime/runtime"
+import { Events } from "@wailsio/runtime"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { ConfirmDownloadDialog } from "@/features/downloads/confirm-download-dialog"
 import { getNavigationItem, navigation } from "@/features/shell/navigation"
 import { SectionContent } from "@/features/shell/section-content"
-import { healthCheck, isDownloadRequestEvent, listPendingBrowserDownloads, type DownloadRequestEvent, type HealthStatus } from "@/lib/backend"
+import { healthCheck, type HealthStatus } from "@/lib/backend"
 import { useUIStore } from "@/stores/ui-store"
 
 interface ReadyEvent {
@@ -28,40 +27,19 @@ export default function App() {
   const [readyMessage, setReadyMessage] = useState("Connecting to backend…")
   const [error, setError] = useState<string | null>(null)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
-  const [confirmQueue, setConfirmQueue] = useState<DownloadRequestEvent[]>([])
   const activeSection = useUIStore((state) => state.activeSection)
   const setActiveSection = useUIStore((state) => state.setActiveSection)
   const currentNavigation = getNavigationItem(activeSection)
 
   useEffect(() => {
-    const enqueueBrowserRequests = (requests: DownloadRequestEvent[]) => {
-      setConfirmQueue((queue) => {
-        const pendingIDs = new Set(queue.map((request) => request.pendingId))
-        const unseen = requests.filter((request) => !pendingIDs.has(request.pendingId))
-        return unseen.length === 0 ? queue : [...queue, ...unseen]
-      })
-    }
-    EventsOn("app:ready", (payload: unknown) => {
+    Events.On("app:ready", (payload: unknown) => {
       if (isReadyEvent(payload)) setReadyMessage(payload.message)
     })
-    EventsOn("tray:add-download", () => {
+    Events.On("tray:add-download", () => {
       setActiveSection("downloads")
       setAddDialogOpen(true)
     })
-    EventsOn("download:requested", (payload: unknown) => {
-      if (isDownloadRequestEvent(payload)) {
-        setActiveSection("downloads")
-        enqueueBrowserRequests([payload])
-      }
-    })
-		EventsOn("tray:updates", () => setActiveSection("settings"))
-    // A native handoff can start FluxDM before React registers the event
-    // listener. Recover those parked requests after subscribing so an event
-    // that arrives during this call is merged rather than lost.
-    void listPendingBrowserDownloads().then((requests) => {
-      if (requests.length > 0) setActiveSection("downloads")
-      enqueueBrowserRequests(requests)
-    })
+		Events.On("tray:updates", () => setActiveSection("settings"))
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n") {
         event.preventDefault()
@@ -77,10 +55,9 @@ export default function App() {
         setReadyMessage("Backend unavailable")
       })
     return () => {
-      EventsOff("app:ready")
-      EventsOff("tray:add-download")
-		EventsOff("tray:updates")
-      EventsOff("download:requested")
+      Events.Off("app:ready")
+      Events.Off("tray:add-download")
+		Events.Off("tray:updates")
       window.removeEventListener("keydown", onKeyDown)
     }
   }, [setActiveSection])
@@ -152,12 +129,6 @@ export default function App() {
             <SectionContent section={activeSection} health={health} hasBackendError={error !== null} addDialogOpen={addDialogOpen} onAddDialogOpenChange={setAddDialogOpen} />
           </section>
         </main>
-
-        <ConfirmDownloadDialog
-          key={confirmQueue[0]?.pendingId ?? "empty"}
-          request={confirmQueue[0] ?? null}
-          onClose={() => setConfirmQueue((queue) => queue.slice(1))}
-        />
       </div>
     </TooltipProvider>
   )

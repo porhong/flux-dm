@@ -110,6 +110,24 @@ func TestPendingStoreListExcludesExpiredEntries(t *testing.T) {
 	}
 }
 
+func TestPendingStoreListUsesArrivalOrder(t *testing.T) {
+	store := NewPendingStore(time.Minute)
+	now := time.Now()
+	store.Put(now, PendingRequest{URL: "https://example.test/first"})
+	store.Put(now, PendingRequest{URL: "https://example.test/second"})
+	store.Put(now, PendingRequest{URL: "https://example.test/third"})
+
+	requests := store.List(now)
+	if len(requests) != 3 {
+		t.Fatalf("list length=%d want=3", len(requests))
+	}
+	for index, want := range []string{"https://example.test/first", "https://example.test/second", "https://example.test/third"} {
+		if requests[index].URL != want {
+			t.Fatalf("request[%d]=%q want=%q", index, requests[index].URL, want)
+		}
+	}
+}
+
 func TestPendingStorePutSweepsExpiredEntries(t *testing.T) {
 	store := NewPendingStore(10 * time.Millisecond)
 	t0 := time.Now()

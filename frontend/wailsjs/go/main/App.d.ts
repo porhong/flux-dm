@@ -45,6 +45,7 @@ export function GetDownload(arg1:string):Promise<application.DownloadDTO>;
 export function GetUpdateStatus():Promise<application.UpdateDTO>;
 
 export function HealthCheck():Promise<application.HealthStatus>;
+export function HideBrowserConfirmation():Promise<void>;
 
 export function InstallPreparedUpdate(arg1:boolean):Promise<void>;
 

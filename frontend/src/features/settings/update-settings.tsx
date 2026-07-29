@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { CheckCircle2, Download, RefreshCw, ShieldAlert } from "lucide-react"
-import { EventsOff, EventsOn } from "../../../wailsjs/runtime/runtime"
+import { Events } from "@wailsio/runtime"
 
 import { Button } from "@/components/ui/button"
 import { checkForUpdates, downloadUpdate, getUpdateStatus, installPreparedUpdate, saveUpdatePreferences, type UpdateStatus } from "@/lib/backend"
@@ -19,8 +19,8 @@ export function UpdateSettings() {
   }, [])
   useEffect(() => {
     void Promise.resolve().then(refresh)
-    EventsOn("update:changed", (value: unknown) => { if (isUpdateStatus(value)) setStatus(value) })
-    return () => EventsOff("update:changed")
+    Events.On("update:changed", (value: unknown) => { if (isUpdateStatus(value)) setStatus(value) })
+    return () => Events.Off("update:changed")
   }, [refresh])
   const perform = async (action: () => Promise<UpdateStatus>) => {
     setBusy(true)

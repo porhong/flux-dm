@@ -1,0 +1,24 @@
+version: '3'
+
+vars:
+  APP_NAME: FluxDM
+  BIN_DIR: bin
+
+tasks:
+  generate:bindings:
+    summary: Regenerate Wails v3 TypeScript bindings.
+    cmds:
+      - wails3 generate bindings -clean=true -ts
+
+  build:frontend:
+    summary: Build the React frontend and embedded assets.
+    deps: [generate:bindings]
+    dir: frontend
+    cmds:
+      - npm run build
+
+  build:
+    summary: Build the Windows desktop executable.
+    deps: [build:frontend]
+    cmds:
+      - go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o {{.BIN_DIR}}/{{.APP_NAME}}.exe

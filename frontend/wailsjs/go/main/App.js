@@ -81,6 +81,9 @@ export function GetUpdateStatus() {
 export function HealthCheck() {
   return window['go']['main']['App']['HealthCheck']();
 }
+export function HideBrowserConfirmation() {
+  return window['go']['main']['App']['HideBrowserConfirmation']();
+}
 
 export function InstallPreparedUpdate(arg1) {
   return window['go']['main']['App']['InstallPreparedUpdate'](arg1);

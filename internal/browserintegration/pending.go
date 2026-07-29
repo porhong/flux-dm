@@ -3,6 +3,7 @@ package browserintegration
 import (
 	"crypto/rand"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -25,6 +26,7 @@ type PendingRequest struct {
 	Cookies           string
 	CreatedAt         time.Time
 	ExpiresAt         time.Time
+	sequence          uint64
 }
 
 // PendingStore is a bounded in-memory cache of unconfirmed browser download
@@ -32,9 +34,10 @@ type PendingRequest struct {
 // lazily on access; a request that is never confirmed or discarded is
 // collected the next time any other entry is touched.
 type PendingStore struct {
-	mu      sync.Mutex
-	ttl     time.Duration
-	entries map[string]pendingEntry
+	mu           sync.Mutex
+	ttl          time.Duration
+	entries      map[string]pendingEntry
+	nextSequence uint64
 }
 
 type pendingEntry struct {
@@ -61,6 +64,8 @@ func (s *PendingStore) Put(now time.Time, request PendingRequest) string {
 	request.ExpiresAt = now.Add(s.ttl)
 	s.mu.Lock()
 	s.sweepLocked(now)
+	s.nextSequence++
+	request.sequence = s.nextSequence
 	s.entries[id] = pendingEntry{request: request}
 	s.mu.Unlock()
 	return id
@@ -157,6 +162,7 @@ func (s *PendingStore) List(now time.Time) []PendingRequest {
 		}
 		requests = append(requests, entry.request)
 	}
+	sort.Slice(requests, func(i, j int) bool { return requests[i].sequence < requests[j].sequence })
 	return requests
 }
 

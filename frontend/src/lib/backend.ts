@@ -16,6 +16,7 @@ import {
 	DownloadUpdate as invokeDownloadUpdate,
   DiscardBrowserDownload as invokeDiscardBrowserDownload,
 	HealthCheck as invokeHealthCheck,
+	HideBrowserConfirmation as invokeHideBrowserConfirmation,
 	GetUpdateStatus as invokeGetUpdateStatus,
 	InstallPreparedUpdate as invokeInstallPreparedUpdate,
   ListDownloads as invokeListDownloads,
@@ -45,7 +46,7 @@ import {
   SetGlobalBandwidthLimit as invokeSetGlobalBandwidthLimit,
   SelectDestinationDirectory as invokeSelectDestinationDirectory,
   StartDownload as invokeStartDownload,
-} from "../../wailsjs/go/main/App"
+} from "../../bindings/github.com/fluxdm/fluxdm/app"
 
 const healthStatusSchema = z.object({
   status: z.literal("ok"),
@@ -217,6 +218,7 @@ export async function confirmBrowserDownload(
 ): Promise<DownloadItem> {
   return downloadSchema.parse(await invokeConfirmBrowserDownload(pendingId, destinationDir, fileName, connections))
 }
+export async function hideBrowserConfirmation(): Promise<void> { await invokeHideBrowserConfirmation() }
 
 // Releases the parked browser handoff without creating a download. Called
 // when the user cancels or closes the confirmation dialog so the backend
@@ -241,11 +243,11 @@ export async function saveQueue(input: SaveQueueInput): Promise<DownloadQueue> {
 export async function deleteQueue(id: string): Promise<void> { await invokeDeleteQueue(id) }
 export async function assignDownloads(input: AssignDownloadsInput): Promise<void> { await invokeAssignDownloads(input) }
 export async function listSchedules():Promise<Schedule[]>{return z.array(scheduleSchema).parse(await invokeListSchedules())}
-export async function saveSchedule(input:SaveScheduleInput):Promise<Schedule>{return scheduleSchema.parse(await invokeSaveSchedule(input))}
+export async function saveSchedule(input:SaveScheduleInput):Promise<Schedule>{return scheduleSchema.parse(await invokeSaveSchedule(input as never))}
 export async function deleteSchedule(id:string):Promise<void>{await invokeDeleteSchedule(id)}
 export async function listScheduleHistory(limit=100):Promise<ScheduleHistory[]>{return z.array(scheduleHistorySchema).parse(await invokeListScheduleHistory(limit))}
 export async function listSiteProfiles():Promise<SiteProfile[]>{return z.array(siteProfileSchema).parse(await invokeListSiteProfiles())}
-export async function saveSiteProfile(input:SaveSiteProfileInput):Promise<SiteProfile>{return siteProfileSchema.parse(await invokeSaveSiteProfile(input))}
+export async function saveSiteProfile(input:SaveSiteProfileInput):Promise<SiteProfile>{return siteProfileSchema.parse(await invokeSaveSiteProfile(input as never))}
 export async function deleteSiteProfile(id:string):Promise<void>{await invokeDeleteSiteProfile(id)}
 export async function clearSiteProfileSecrets(id:string):Promise<void>{await invokeClearSiteProfileSecrets(id)}
 export async function clearPrivateData():Promise<void>{await invokeClearPrivateData()}

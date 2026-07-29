@@ -67,7 +67,9 @@ func launchDesktop() error {
 	if _, err := os.Stat(desktop); err != nil {
 		return err
 	}
-	command := exec.Command(desktop)
+	// This fixed internal argument is the only launch mode that suppresses the
+	// dashboard. It is never built from browser-provided input.
+	command := exec.Command(desktop, "--browser-handoff")
 	command.Stdin = nil
 	command.Stdout = nil
 	command.Stderr = nil
