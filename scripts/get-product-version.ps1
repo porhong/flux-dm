@@ -1,10 +1,11 @@
 [CmdletBinding()]
 param(
-  [string]$WailsConfig = (Join-Path (Split-Path -Parent $PSScriptRoot) 'wails.json'),
+  [string]$WailsConfig,
   [string]$ExpectedVersion
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not $WailsConfig) { $WailsConfig = Join-Path (Split-Path -Parent $PSScriptRoot) 'wails.json' }
 $configPath = (Resolve-Path -LiteralPath $WailsConfig).Path
 $config = Get-Content -Raw -Encoding utf8 -LiteralPath $configPath | ConvertFrom-Json
 $version = [string]$config.info.productVersion

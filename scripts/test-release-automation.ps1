@@ -35,6 +35,10 @@ try {
   $extensionSource = Join-Path $temporaryRoot 'browser-extension'
   New-Item -ItemType Directory -Path (Join-Path $extensionSource 'native-host'),(Join-Path $extensionSource 'icons') -Force | Out-Null
   $repositoryVersion = & "$PSScriptRoot\get-product-version.ps1"
+  $defaultValidatedReleaseVersion = & "$PSScriptRoot\validate-release-version.ps1" -Tag "v$repositoryVersion"
+  Assert-Equal $defaultValidatedReleaseVersion $repositoryVersion 'Default release-version validation must resolve the repository config.'
+  $defaultValidatedRCVersion = & "$PSScriptRoot\validate-rc-release-version.ps1" -Tag "v$repositoryVersion-rc.1"
+  Assert-Equal $defaultValidatedRCVersion "$repositoryVersion-rc.1" 'Default release-candidate validation must resolve the repository config.'
   [ordered]@{ manifest_version=3; version=$repositoryVersion; key='test-public-key'; permissions=@('nativeMessaging') } | ConvertTo-Json | Set-Content -Encoding utf8 -LiteralPath (Join-Path $extensionSource 'manifest.json')
   'console.log("FluxDM test extension")' | Set-Content -Encoding utf8 -LiteralPath (Join-Path $extensionSource 'service-worker.js')
   'development-only documentation' | Set-Content -Encoding utf8 -LiteralPath (Join-Path $extensionSource 'README.md')
