@@ -2,7 +2,8 @@ version: '3'
 
 vars:
   APP_NAME: FluxDM
-  BIN_DIR: bin
+  BIN_DIR: build/bin
+  BUILD_LDFLAGS: '{{.FLUXDM_BUILD_LDFLAGS | default "-w -s -H windowsgui"}}'
 
 tasks:
   generate:bindings:
@@ -21,4 +22,4 @@ tasks:
     summary: Build the Windows desktop executable.
     deps: [build:frontend]
     cmds:
-      - go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
+      - go build -tags production -trimpath -buildvcs=false -ldflags="{{.BUILD_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}.exe

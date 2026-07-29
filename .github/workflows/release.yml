@@ -38,7 +38,7 @@ jobs:
       - name: Install the pinned Wails CLI
         shell: pwsh
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.119
           Join-Path (go env GOPATH) 'bin' | Add-Content -Encoding utf8 $env:GITHUB_PATH
 
       - name: Validate release tag and product version

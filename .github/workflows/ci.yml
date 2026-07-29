@@ -85,7 +85,11 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+      - name: Install the pinned Wails v3 CLI
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.119
+          Join-Path (go env GOPATH) 'bin' | Add-Content -Encoding utf8 $env:GITHUB_PATH
       - name: Prepare NSIS compiler
         shell: pwsh
         run: |
@@ -96,10 +100,18 @@ jobs:
           if (-not (Test-Path -LiteralPath (Join-Path $nsisPath 'makensis.exe'))) { throw "NSIS installation did not provide makensis.exe at $nsisPath" }
           Add-Content -Encoding utf8 $env:GITHUB_PATH $nsisPath
           & (Join-Path $nsisPath 'makensis.exe') /VERSION
-      - run: wails build
+      - run: wails3 build
       - run: go build -trimpath -o build/bin/FluxDM.NativeHost.exe ./cmd/fluxdm-native-host
       - run: go build -trimpath -o build/bin/FluxDM.UpdateLauncher.exe ./cmd/fluxdm-update-launcher
-      - run: wails build -nsis -s -skipbindings -trimpath -webview2 download
+      - name: Build NSIS installer
+        shell: pwsh
+        run: |
+          wails3 generate webview2bootstrapper -dir build/windows/installer
+          Push-Location build/windows/installer
+          try {
+            makensis /WX "-DARG_WAILS_AMD64_BINARY=..\..\bin\FluxDM.exe" project.nsi
+            if ($LASTEXITCODE) { throw 'NSIS build failed' }
+          } finally { Pop-Location }
       - name: Verify Windows version metadata
         shell: pwsh
         run: ./scripts/verify-version-metadata.ps1 -Path build/bin/FluxDM.exe,build/bin/FluxDM-amd64-installer.exe
