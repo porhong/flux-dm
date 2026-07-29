@@ -18,8 +18,15 @@ tasks:
     cmds:
       - npm run build
 
+  generate:windows:resources:
+    summary: Generate the version resource and manifest for the Windows executable.
+    cmds:
+      - powershell -NoProfile -File scripts/generate-windows-version-resource.ps1
+      - wails3 generate syso -arch amd64 -icon build/windows/icon.ico -manifest build/windows/generated-manifest.xml -info build/windows/generated-info.json -out wails_windows_amd64.syso
+
   build:
     summary: Build the Windows desktop executable.
-    deps: [build:frontend]
+    deps: [build:frontend, generate:windows:resources]
     cmds:
       - go build -tags production -trimpath -buildvcs=false -ldflags="{{.BUILD_LDFLAGS}}" -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
+      - powershell -NoProfile -Command "Remove-Item -LiteralPath wails_windows_amd64.syso -Force"

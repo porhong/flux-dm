@@ -1,5 +1,8 @@
 build/bin
 bin/
+build/windows/generated-info.json
+build/windows/generated-manifest.xml
+wails_windows_*.syso
 node_modules
 frontend/dist
 frontend/package.json.md5
