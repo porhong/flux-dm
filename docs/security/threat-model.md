@@ -25,7 +25,7 @@
 - Destination directories must be existing absolute paths and are resolved through symlinks/reparse points before use.
 - Volume roots, Windows, Program Files, Program Files (x86), and ProgramData (including descendants and resolved junction targets) are rejected as destinations.
 - `.fluxpart` names are atomically reserved with exclusive creation. Existing final/partial paths trigger collision-free selection.
-- Executable, installer, script, and other code-bearing extensions require an explicit confirmation in the Add dialog. Browser interception rejects them without confirmation, leaving the browser download intact.
+- Executable, installer, script, and other code-bearing extensions download normally, but completed files are never opened or executed automatically. Opening one still requires an explicit user confirmation.
 
 ### Credentials, browser integration, and IPC
 

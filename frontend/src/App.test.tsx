@@ -94,7 +94,7 @@ describe("App", () => {
   it("recovers a browser handoff that arrived before the event listener", async () => {
     probeURLMock.mockResolvedValue({
       url: "https://example.test/archive.zip", finalUrl: "https://example.test/archive.zip", fileName: "archive.zip",
-      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: false,
+      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true,
     })
     listPendingBrowserDownloadsMock.mockResolvedValue([{
       pendingId: "browser-pending-1", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
@@ -106,11 +106,11 @@ describe("App", () => {
     expect(screen.getByText("archive.zip")).toBeInTheDocument()
   })
 
-  it("passes executable confirmation from a browser handoff to the backend", async () => {
+  it("starts an executable browser handoff without an acknowledgement", async () => {
     const user = userEvent.setup()
     probeURLMock.mockResolvedValue({
       url: "https://example.test/setup.exe", finalUrl: "https://example.test/setup.exe", fileName: "setup.exe",
-      totalBytes: 2_097_152, mimeType: "application/vnd.microsoft.portable-executable", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: true,
+      totalBytes: 2_097_152, mimeType: "application/vnd.microsoft.portable-executable", etag: "etag", lastModified: "", rangeSupported: true,
     })
     listPendingBrowserDownloadsMock.mockResolvedValue([{
       pendingId: "browser-pending-exe", url: "https://example.test/setup.exe", suggestedFilename: "setup.exe", referrer: "",
@@ -120,11 +120,11 @@ describe("App", () => {
     render(<App />)
 
     await screen.findByRole("dialog", { name: "Start this download?" })
-    await user.click(await screen.findByRole("checkbox"))
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Start download" }))
 
     await waitFor(() => expect(confirmBrowserDownloadMock).toHaveBeenCalledWith(
-      "browser-pending-exe", "C:\\Users\\test\\Downloads", "setup.exe", 4, true,
+      "browser-pending-exe", "C:\\Users\\test\\Downloads", "setup.exe", 4,
     ))
     expect(startDownloadMock).toHaveBeenCalledWith("browser-download")
   })
@@ -133,7 +133,7 @@ describe("App", () => {
     const user = userEvent.setup()
     probeURLMock.mockResolvedValue({
       url: "https://example.test/archive.zip", finalUrl: "https://example.test/archive.zip", fileName: "archive.zip",
-      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: false,
+      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true,
     })
     listPendingBrowserDownloadsMock.mockResolvedValue([{
       pendingId: "browser-pending-folder", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
@@ -149,7 +149,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Start download" }))
 
     await waitFor(() => expect(confirmBrowserDownloadMock).toHaveBeenCalledWith(
-      "browser-pending-folder", "D:\\Downloads", "archive.zip", 4, false,
+      "browser-pending-folder", "D:\\Downloads", "archive.zip", 4,
     ))
   })
 
@@ -203,7 +203,7 @@ describe("App", () => {
     const user = userEvent.setup()
     probeURLMock.mockResolvedValue({
       url: "https://example.test/archive.zip", finalUrl: "https://cdn.example.test/archive.zip", fileName: "archive.zip",
-      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true, executableWarning: false,
+      totalBytes: 2_097_152, mimeType: "application/zip", etag: "etag", lastModified: "", rangeSupported: true,
     })
     render(<App />)
 

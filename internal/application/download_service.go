@@ -30,28 +30,26 @@ const (
 var ErrRemoteChanged = errors.New("remote resource changed")
 
 type CreateDownloadInput struct {
-	URL               string `json:"url"`
-	DestinationDir    string `json:"destinationDir"`
-	FileName          string `json:"fileName"`
-	Connections       int    `json:"connections"`
-	BandwidthLimit    int64  `json:"bandwidthLimit"`
-	CategoryID        string `json:"categoryId"`
-	QueueID           string `json:"queueId"`
-	Priority          int    `json:"priority"`
-	SiteProfileID     string `json:"siteProfileId"`
-	ConfirmExecutable bool   `json:"confirmExecutable"`
+	URL            string `json:"url"`
+	DestinationDir string `json:"destinationDir"`
+	FileName       string `json:"fileName"`
+	Connections    int    `json:"connections"`
+	BandwidthLimit int64  `json:"bandwidthLimit"`
+	CategoryID     string `json:"categoryId"`
+	QueueID        string `json:"queueId"`
+	Priority       int    `json:"priority"`
+	SiteProfileID  string `json:"siteProfileId"`
 }
 
 type ProbeDTO struct {
-	URL               string `json:"url"`
-	FinalURL          string `json:"finalUrl"`
-	FileName          string `json:"fileName"`
-	TotalBytes        int64  `json:"totalBytes"`
-	MIMEType          string `json:"mimeType"`
-	ETag              string `json:"etag"`
-	LastModified      string `json:"lastModified"`
-	RangeSupported    bool   `json:"rangeSupported"`
-	ExecutableWarning bool   `json:"executableWarning"`
+	URL            string `json:"url"`
+	FinalURL       string `json:"finalUrl"`
+	FileName       string `json:"fileName"`
+	TotalBytes     int64  `json:"totalBytes"`
+	MIMEType       string `json:"mimeType"`
+	ETag           string `json:"etag"`
+	LastModified   string `json:"lastModified"`
+	RangeSupported bool   `json:"rangeSupported"`
 }
 
 type DownloadDTO struct {
@@ -213,9 +211,6 @@ func (s *DownloadService) create(ctx context.Context, input CreateDownloadInput,
 	fileName := strings.TrimSpace(input.FileName)
 	if fileName == "" {
 		fileName = fileNameFromURL(parsed)
-	}
-	if fluxfs.IsExecutableLike(fileName) && !input.ConfirmExecutable {
-		return DownloadDTO{}, NewError(ErrInvalidInput, "This file type can run code. Confirm the executable download before adding it.", nil)
 	}
 	connections := input.Connections
 	if connections == 0 {
@@ -1275,7 +1270,6 @@ func probeToDTO(result download.ProbeResult) ProbeDTO {
 		URL: result.URL, FinalURL: result.FinalURL, FileName: result.FileName,
 		TotalBytes: result.TotalBytes, MIMEType: result.MIMEType, ETag: result.ETag,
 		LastModified: result.LastModified, RangeSupported: result.RangeSupported,
-		ExecutableWarning: fluxfs.IsExecutableLike(result.FileName),
 	}
 }
 

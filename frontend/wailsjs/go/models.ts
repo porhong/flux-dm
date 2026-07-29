@@ -138,7 +138,6 @@ export namespace application {
 	    queueId: string;
 	    priority: number;
 	    siteProfileId: string;
-	    confirmExecutable: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new CreateDownloadInput(source);
@@ -155,7 +154,6 @@ export namespace application {
 	        this.queueId = source["queueId"];
 	        this.priority = source["priority"];
 	        this.siteProfileId = source["siteProfileId"];
-	        this.confirmExecutable = source["confirmExecutable"];
 	    }
 	}
 	
@@ -218,7 +216,6 @@ export namespace application {
 	    etag: string;
 	    lastModified: string;
 	    rangeSupported: boolean;
-	    executableWarning: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProbeDTO(source);
@@ -234,7 +231,6 @@ export namespace application {
 	        this.etag = source["etag"];
 	        this.lastModified = source["lastModified"];
 	        this.rangeSupported = source["rangeSupported"];
-	        this.executableWarning = source["executableWarning"];
 	    }
 	}
 	export class SaveCategoryInput {
@@ -399,7 +395,6 @@ export namespace application {
 	}
 
 }
-
 export namespace organization {
 	
 	export class Category {

@@ -53,6 +53,24 @@ func TestDownloadServiceCompletesAndPersistsDownload(t *testing.T) {
 	}
 }
 
+func TestDownloadServiceQueuesExecutableWithoutAcknowledgement(t *testing.T) {
+	server := testserver.New()
+	defer server.Close()
+	service, database, _ := newTestService(t, server)
+	defer database.Close()
+	defer service.Close()
+
+	created, err := service.Create(context.Background(), application.CreateDownloadInput{
+		URL: server.URL("/file"), DestinationDir: t.TempDir(), FileName: "setup.exe",
+	})
+	if err != nil {
+		t.Fatalf("queue executable download: %v", err)
+	}
+	if created.State != "queued" || created.FileName != "setup.exe" {
+		t.Fatalf("unexpected queued download: %+v", created)
+	}
+}
+
 func TestDownloadServiceRemovesCompletedRecordAndKeepsFile(t *testing.T) {
 	server := testserver.New()
 	defer server.Close()

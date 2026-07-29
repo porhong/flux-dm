@@ -16,7 +16,7 @@ export function ClearPrivateData():Promise<void>;
 
 export function ClearSiteProfileSecrets(arg1:string):Promise<void>;
 
-export function ConfirmBrowserDownload(arg1:string,arg2:string,arg3:string,arg4:number,arg5:boolean):Promise<application.DownloadDTO>;
+export function ConfirmBrowserDownload(arg1:string,arg2:string,arg3:string,arg4:number):Promise<application.DownloadDTO>;
 
 export function CreateDownload(arg1:application.CreateDownloadInput):Promise<application.DownloadDTO>;
 

@@ -116,7 +116,6 @@ const probeSchema = z.object({
   etag: z.string(),
   lastModified: z.string(),
   rangeSupported: z.boolean(),
-	executableWarning:z.boolean(),
 })
 
 export type HealthStatus = z.infer<typeof healthStatusSchema>
@@ -184,7 +183,6 @@ export interface CreateDownloadInput {
 	queueId?: string
 	priority?: number
 	siteProfileId?: string
-	confirmExecutable?:boolean
 }
 
 export interface SaveCategoryInput { id: string; name: string; extensions: string[]; destinationDir: string; priority: number }
@@ -203,7 +201,7 @@ export async function probeURL(url: string): Promise<ProbeResult> {
 }
 
 export async function createDownload(input: CreateDownloadInput): Promise<DownloadItem> {
-  return downloadSchema.parse(await invokeCreateDownload({ ...input, categoryId: input.categoryId ?? "", queueId: input.queueId ?? "", priority: input.priority ?? 0, siteProfileId:input.siteProfileId??"",confirmExecutable:input.confirmExecutable??false }))
+  return downloadSchema.parse(await invokeCreateDownload({ ...input, categoryId: input.categoryId ?? "", queueId: input.queueId ?? "", priority: input.priority ?? 0, siteProfileId: input.siteProfileId ?? "" }))
 }
 
 // Consumes the parked browser handoff identified by pendingId and creates
@@ -216,9 +214,8 @@ export async function confirmBrowserDownload(
   destinationDir: string,
   fileName: string,
   connections: 1 | 2 | 4 | 8 | 16,
-  confirmExecutable: boolean,
 ): Promise<DownloadItem> {
-  return downloadSchema.parse(await invokeConfirmBrowserDownload(pendingId, destinationDir, fileName, connections, confirmExecutable))
+  return downloadSchema.parse(await invokeConfirmBrowserDownload(pendingId, destinationDir, fileName, connections))
 }
 
 // Releases the parked browser handoff without creating a download. Called

@@ -212,7 +212,7 @@ func (a *App) acceptBrowserRequest(ctx context.Context, message browserintegrati
 // can correct the destination and try again. The frontend starts the download
 // separately so a queueing failure leaves the queued record visible in the
 // transfer list for the user to retry.
-func (a *App) ConfirmBrowserDownload(pendingID, destinationDir, fileName string, connections int, confirmExecutable bool) (application.DownloadDTO, error) {
+func (a *App) ConfirmBrowserDownload(pendingID, destinationDir, fileName string, connections int) (application.DownloadDTO, error) {
 	if a.downloads == nil {
 		return application.DownloadDTO{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
 	}
@@ -228,11 +228,10 @@ func (a *App) ConfirmBrowserDownload(pendingID, destinationDir, fileName string,
 		name = pending.SuggestedFilename
 	}
 	created, err := a.downloads.CreateWithCookies(a.ctx, application.CreateDownloadInput{
-		URL:               pending.URL,
-		DestinationDir:    destinationDir,
-		FileName:          name,
-		Connections:       connections,
-		ConfirmExecutable: confirmExecutable,
+		URL:            pending.URL,
+		DestinationDir: destinationDir,
+		FileName:       name,
+		Connections:    connections,
 	}, pending.Cookies)
 	if err != nil {
 		a.pending.Release(time.Now(), pendingID)

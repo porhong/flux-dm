@@ -16,7 +16,6 @@ const formSchema = z.object({
   fileName: z.string().trim().max(240, "The filename is too long."),
   connections: z.union([z.literal(1), z.literal(2), z.literal(4), z.literal(8), z.literal(16)]),
   bandwidthLimitMiB: z.number().min(0).max(10240),
-	confirmExecutable:z.boolean(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -33,7 +32,7 @@ export function AddDownloadDialog({ open, onOpenChange, onCreated }: AddDownload
   const [probing, setProbing] = useState(false)
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { url: "", destinationDir: "", fileName: "", connections: 4, bandwidthLimitMiB: 0, confirmExecutable:false },
+    defaultValues: { url: "", destinationDir: "", fileName: "", connections: 4, bandwidthLimitMiB: 0 },
   })
   const selectedConnections = useWatch({ control: form.control, name: "connections" })
 
@@ -84,7 +83,6 @@ export function AddDownloadDialog({ open, onOpenChange, onCreated }: AddDownload
       await inspectURL()
       return
     }
-	if(probe.executableWarning&&!values.confirmExecutable){setError("Confirm that you want to download this executable or script.");return}
     try {
       const created = await createDownload({
         url: values.url,
@@ -92,7 +90,6 @@ export function AddDownloadDialog({ open, onOpenChange, onCreated }: AddDownload
         fileName: values.fileName || probe.fileName,
         connections: values.connections,
         bandwidthLimit: Math.round(values.bandwidthLimitMiB * 1024 * 1024),
-		confirmExecutable:values.confirmExecutable,
       })
       onCreated(created)
       await startDownload(created.id)
@@ -152,7 +149,6 @@ export function AddDownloadDialog({ open, onOpenChange, onCreated }: AddDownload
           </Field>
 
           {probe && <DownloadDetails probe={probe} connections={selectedConnections} />}
-		  {probe?.executableWarning&&<label className="flex items-start gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3 text-sm text-amber-100"><input type="checkbox" {...form.register("confirmExecutable")}/><span>This file can run code on Windows. I chose this source and want FluxDM to download it. FluxDM will not open it automatically.</span></label>}
           {error && <p className="rounded-lg border border-red-400/15 bg-red-400/5 p-3 text-sm text-red-200" role="alert">{error}</p>}
 
           <DialogFooter>

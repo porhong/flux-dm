@@ -29,7 +29,6 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
   const [probing, setProbing] = useState(() => request !== null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [confirmExecutable, setConfirmExecutable] = useState(false)
   // A resolved request has either been discarded or converted to a download.
   // Keeping this local guard prevents duplicate confirmation calls.
   const [resolved, setResolved] = useState(false)
@@ -67,10 +66,6 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
       setError("Choose a destination folder.")
       return
     }
-    if (probe.executableWarning && !confirmExecutable) {
-      setError("Confirm that you want to download this executable or script.")
-      return
-    }
     setError(null)
     setSubmitting(true)
     try {
@@ -79,7 +74,6 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
         destinationDir.trim(),
         fileName.trim() || request.suggestedFilename,
         4,
-        confirmExecutable,
       )
       setResolved(true)
       try {
@@ -104,8 +98,7 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
   }
 
   const source = sourceHost(probe?.finalUrl || request?.url || "")
-  const executableWarning = probe?.executableWarning === true
-  const canStart = !submitting && !probing && probe !== null && destinationDir.trim() !== "" && (!executableWarning || confirmExecutable) && !resolved
+  const canStart = !submitting && !probing && probe !== null && destinationDir.trim() !== "" && !resolved
 
   return (
     <Dialog open={request !== null} onOpenChange={(next) => { if (!next) cancel() }}>
@@ -138,13 +131,6 @@ export function ConfirmDownloadDialog({ request, onClose }: ConfirmDownloadDialo
               <Button className="shrink-0" type="button" variant="outline" aria-label="Browse destination folder" onClick={() => void chooseDirectory()} disabled={submitting}><FolderOpen className="size-4" /><span className="sr-only">Browse destination folder</span></Button>
             </div>
           </div>
-
-          {executableWarning ? (
-            <label className="flex items-start gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3 text-sm text-amber-100">
-              <input type="checkbox" checked={confirmExecutable} onChange={(event) => setConfirmExecutable(event.target.checked)} disabled={submitting} />
-              <span>This file can run code on Windows. I chose this source and want FluxDM to download it. FluxDM will not open it automatically.</span>
-            </label>
-          ) : null}
 
           {error ? <p className="rounded-lg border border-red-400/15 bg-red-400/5 p-3 text-sm text-red-200" role="alert">{error}</p> : null}
         </div>

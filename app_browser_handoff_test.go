@@ -65,14 +65,14 @@ func TestConfirmBrowserDownloadRetainsRequestAfterDestinationValidationError(t *
 		Cookies:           "session=secret",
 	})
 
-	if _, err := app.ConfirmBrowserDownload(pendingID, filepath.Join(t.TempDir(), "missing"), "archive.zip", 4, false); err == nil {
+	if _, err := app.ConfirmBrowserDownload(pendingID, filepath.Join(t.TempDir(), "missing"), "archive.zip", 4); err == nil {
 		t.Fatal("expected invalid destination error")
 	}
 	if requests, err := app.ListPendingBrowserDownloads(); err != nil || len(requests) != 1 || requests[0].PendingID != pendingID {
 		t.Fatalf("pending request was not retained after validation error: requests=%+v err=%v", requests, err)
 	}
 
-	created, err := app.ConfirmBrowserDownload(pendingID, t.TempDir(), "archive.zip", 4, false)
+	created, err := app.ConfirmBrowserDownload(pendingID, t.TempDir(), "archive.zip", 4)
 	if err != nil {
 		t.Fatal(err)
 	}

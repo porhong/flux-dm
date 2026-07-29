@@ -15,7 +15,7 @@ For a non-destructive check of an installation that must remain in place, run `s
 - Verify installer Authenticode signature in Properties and with `signtool verify /pa /all`.
 - Install interactively and silently; confirm WebView2 is detected or installed, FluxDM launches, sidebar navigation works, and Start/Desktop shortcuts open the app. Select the optional **Start FluxDM when I sign in** component once, verify the current-user Run value, and confirm uninstall removes it.
 - Add a local test-server download, then exercise pause, exit, restart recovery, resume, completion hash, tray hide/show, and notification.
-- Create category/queue/schedule/profile records, restart, and confirm persistence. Verify an executable download requires acknowledgement.
+- Create category/queue/schedule/profile records, restart, and confirm persistence. Verify executable downloads start normally and require confirmation only when opened.
 - Load the packaged extension in Chrome, Edge, and Brave, test native connectivity, context-menu handoff, eligible interception, exclusion fallback, malformed-message rejection, and opt-in cookie transfer.
 - Verify native-host manifest paths/registrations point into the install directory and contain only the fixed extension origin.
 - Run the silent uninstaller. Confirm shortcuts and Chrome/Edge/Brave registry keys are removed, while completed downloads and `%APPDATA%\FluxDM` data remain. Reinstall, uninstall interactively with **Remove FluxDM settings…** selected, and confirm known database/log/bridge files are removed while an unknown sentinel file and completed downloads survive.

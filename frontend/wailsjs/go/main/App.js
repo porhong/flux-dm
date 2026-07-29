@@ -22,8 +22,8 @@ export function ClearSiteProfileSecrets(arg1) {
   return window['go']['main']['App']['ClearSiteProfileSecrets'](arg1);
 }
 
-export function ConfirmBrowserDownload(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['ConfirmBrowserDownload'](arg1, arg2, arg3, arg4, arg5);
+export function ConfirmBrowserDownload(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ConfirmBrowserDownload'](arg1, arg2, arg3, arg4);
 }
 
 export function CreateDownload(arg1) {

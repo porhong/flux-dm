@@ -58,7 +58,7 @@ Status: **proven locally**.
 
 Status: **proven locally**.
 
-- Threat model, privacy review, executable confirmation, URL/path/redirect controls, database corruption backup/recovery, log redaction, and dependency review are implemented and documented.
+- Threat model, privacy review, executable-open confirmation, URL/path/redirect controls, database corruption backup/recovery, log redaction, and dependency review are implemented and documented.
 - Race tests pass with Go 1.26.5, CGO enabled, and MinGW GCC. The release script now makes that compiler gate explicit.
 - Filename, URL, native-message, and segment-range fuzzers cover the named unsafe-input boundaries. The segment planner fuzzer checks full contiguous coverage, ordering, checkpoints, gaps, and overlaps for arbitrary sizes and supported connection counts.
 - `go mod verify`, `govulncheck`, and `npm audit` are release gates. No user-controlled string is executed through a shell.
