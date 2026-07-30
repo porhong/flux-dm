@@ -19,6 +19,8 @@ type UpdateDTO struct {
 	LastError        string `json:"lastError"`
 	Preview          bool   `json:"preview"`
 	CanInstall       bool   `json:"canInstall"`
+	InstalledVersion string `json:"installedVersion"`
+	InstalledAt      string `json:"installedAt"`
 }
 type UpdatePreferencesInput struct {
 	Channel      string `json:"channel"`
@@ -54,5 +56,5 @@ func (s *UpdateService) Install(ctx context.Context, confirmPreview bool) error 
 	return s.manager.Install(ctx, confirmPreview)
 }
 func updateDTO(value update.Status) UpdateDTO {
-	return UpdateDTO{CurrentVersion: value.CurrentVersion, Channel: value.Channel, AutoDownload: value.AutoDownload, Phase: value.Phase, AvailableVersion: value.AvailableVersion, ReleaseNotesURL: value.ReleaseNotesURL, DownloadedBytes: value.DownloadedBytes, TotalBytes: value.TotalBytes, LastCheckedAt: value.LastCheckedAt, LastError: value.LastError, Preview: value.Preview, CanInstall: value.CanInstall}
+	return UpdateDTO{CurrentVersion: value.CurrentVersion, Channel: value.Channel, AutoDownload: value.AutoDownload, Phase: value.Phase, AvailableVersion: value.AvailableVersion, ReleaseNotesURL: value.ReleaseNotesURL, DownloadedBytes: value.DownloadedBytes, TotalBytes: value.TotalBytes, LastCheckedAt: value.LastCheckedAt, LastError: value.LastError, Preview: value.Preview, CanInstall: value.CanInstall, InstalledVersion: value.InstalledVersion, InstalledAt: value.InstalledAt}
 }

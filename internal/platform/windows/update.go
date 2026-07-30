@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/fluxdm/fluxdm/internal/update"
 	"golang.org/x/sys/windows"
 )
 
@@ -71,14 +72,14 @@ func (AuthenticodeVerifier) VerifyProductionInstaller(path string) error {
 
 type UpdateLauncher struct{ HelperPath, RestartPath, CacheDir string }
 
-func (l UpdateLauncher) Launch(ctx context.Context, installerPath string) error {
+func (l UpdateLauncher) Launch(ctx context.Context, installerPath string, handoff update.Handoff) error {
 	if !filepath.IsAbs(installerPath) || filepath.Ext(installerPath) != ".exe" {
 		return errors.New("invalid verified installer path")
 	}
 	if _, err := os.Stat(installerPath); err != nil {
 		return err
 	}
-	if l.HelperPath == "" || l.RestartPath == "" || l.CacheDir == "" {
+	if l.HelperPath == "" || l.RestartPath == "" || l.CacheDir == "" || !filepath.IsAbs(handoff.ResultPath) || handoff.TargetVersion == "" || handoff.Token == "" {
 		return errors.New("update launcher is not configured")
 	}
 	if err := os.MkdirAll(l.CacheDir, 0o700); err != nil {
@@ -90,7 +91,7 @@ func (l UpdateLauncher) Launch(ctx context.Context, installerPath string) error 
 	if err := copyFile(l.HelperPath, copyPath); err != nil {
 		return err
 	}
-	command := exec.CommandContext(ctx, copyPath, "-parent-pid", strconv.Itoa(os.Getpid()), "-installer", installerPath, "-restart", l.RestartPath)
+	command := exec.CommandContext(ctx, copyPath, "-parent-pid", strconv.Itoa(os.Getpid()), "-installer", installerPath, "-restart", l.RestartPath, "-target-version", handoff.TargetVersion, "-token", handoff.Token, "-result", handoff.ResultPath)
 	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	return command.Start()
 }

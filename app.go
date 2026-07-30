@@ -191,7 +191,7 @@ func (a *App) startup(ctx context.Context) {
 		} else {
 			a.updates = application.NewUpdateService(manager)
 			manager.SetNotifier(func(status update.Status) {
-				a.bus.Publish(events.Event{Type: events.UpdateChanged, Data: application.UpdateDTO{CurrentVersion: status.CurrentVersion, Channel: status.Channel, AutoDownload: status.AutoDownload, Phase: status.Phase, AvailableVersion: status.AvailableVersion, ReleaseNotesURL: status.ReleaseNotesURL, DownloadedBytes: status.DownloadedBytes, TotalBytes: status.TotalBytes, LastCheckedAt: status.LastCheckedAt, LastError: status.LastError, Preview: status.Preview, CanInstall: status.CanInstall}})
+				a.bus.Publish(events.Event{Type: events.UpdateChanged, Data: application.UpdateDTO{CurrentVersion: status.CurrentVersion, Channel: status.Channel, AutoDownload: status.AutoDownload, Phase: status.Phase, AvailableVersion: status.AvailableVersion, ReleaseNotesURL: status.ReleaseNotesURL, DownloadedBytes: status.DownloadedBytes, TotalBytes: status.TotalBytes, LastCheckedAt: status.LastCheckedAt, LastError: status.LastError, Preview: status.Preview, CanInstall: status.CanInstall, InstalledVersion: status.InstalledVersion, InstalledAt: status.InstalledAt}})
 			})
 			if _, loadErr := a.updates.Load(ctx); loadErr != nil {
 				a.logger.Error("update state load failed", map[string]any{"error": loadErr.Error()})
@@ -200,7 +200,7 @@ func (a *App) startup(ctx context.Context) {
 		}
 	}
 	a.bus.Publish(events.Event{Type: events.AppReady, Message: "Backend services are ready"})
-	a.logger.Info("application started", map[string]any{"version": application.Version})
+	a.logger.Info("application started", map[string]any{"release_version": application.ReleaseVersion})
 }
 
 func (a *App) shutdown(_ context.Context) {

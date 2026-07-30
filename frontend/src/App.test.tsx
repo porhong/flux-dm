@@ -292,6 +292,19 @@ describe("App", () => {
 		expect(await screen.findByText("FluxDM 1.1.0 is available")).toBeInTheDocument()
 	})
 
+	it("shows a confirmed installed release and retry install state", async () => {
+		const user = userEvent.setup()
+		getUpdateStatusMock.mockResolvedValue(updateStatusFixture({
+			phase: "ready", availableVersion: "1.1.0", canInstall: true,
+			lastError: "The update installer did not complete. Retry restart and install.",
+			installedVersion: "1.0.0-rc.12", installedAt: "2026-01-01T00:00:00Z",
+		}))
+		render(<App />)
+		await user.click(screen.getByRole("button", { name: "Settings" }))
+		expect(await screen.findByText(/Updated to FluxDM 1\.0\.0-rc\.12/)).toBeInTheDocument()
+		expect(screen.getByRole("button", { name: "Retry restart and install" })).toBeInTheDocument()
+	})
+
   it("opens a completed file only after an explicit row action", async () => {
     const user = userEvent.setup()
     listDownloadsMock.mockResolvedValue([downloadFixture({ id: "completed", fileName: "report.pdf", state: "completed" })])
@@ -376,5 +389,5 @@ function downloadFixture(overrides: Partial<import("@/lib/backend").DownloadItem
 }
 
 function updateStatusFixture(overrides: Partial<import("@/lib/backend").UpdateStatus> = {}): import("@/lib/backend").UpdateStatus {
-	return { currentVersion: "1.0.0", channel: "stable", autoDownload: true, phase: "idle", availableVersion: "", releaseNotesUrl: "", downloadedBytes: 0, totalBytes: 0, lastCheckedAt: "", lastError: "", preview: false, canInstall: false, ...overrides }
+	return { currentVersion: "1.0.0", channel: "stable", autoDownload: true, phase: "idle", availableVersion: "", releaseNotesUrl: "", downloadedBytes: 0, totalBytes: 0, lastCheckedAt: "", lastError: "", preview: false, canInstall: false, installedVersion: "", installedAt: "", ...overrides }
 }

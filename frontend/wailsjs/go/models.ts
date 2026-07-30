@@ -358,6 +358,8 @@ export namespace application {
 	    lastError: string;
 	    preview: boolean;
 	    canInstall: boolean;
+	    installedVersion: string;
+	    installedAt: string;
 
 	    static createFrom(source: any = {}) {
 	        return new UpdateDTO(source);
@@ -377,6 +379,8 @@ export namespace application {
 	        this.lastError = source["lastError"];
 	        this.preview = source["preview"];
 	        this.canInstall = source["canInstall"];
+	        this.installedVersion = source["installedVersion"];
+	        this.installedAt = source["installedAt"];
 	    }
 	}
 	export class UpdatePreferencesInput {

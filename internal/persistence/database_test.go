@@ -19,8 +19,8 @@ func TestOpenAppliesMigrationsOnce(t *testing.T) {
 	if err := database.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM schema_migrations").Scan(&migrations); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if migrations != 9 {
-		t.Fatalf("expected nine migrations, got %d", migrations)
+	if migrations != 10 {
+		t.Fatalf("expected ten migrations, got %d", migrations)
 	}
 	if err := database.migrate(ctx); err != nil {
 		t.Fatalf("repeat migration: %v", err)

@@ -680,6 +680,8 @@ export class UpdateDTO {
     "lastError": string;
     "preview": boolean;
     "canInstall": boolean;
+    "installedVersion": string;
+    "installedAt": string;
 
     /** Creates a new UpdateDTO instance. */
     constructor($$source: Partial<UpdateDTO> = {}) {
@@ -718,6 +720,12 @@ export class UpdateDTO {
         }
         if (!("canInstall" in $$source)) {
             this["canInstall"] = false;
+        }
+        if (!("installedVersion" in $$source)) {
+            this["installedVersion"] = "";
+        }
+        if (!("installedAt" in $$source)) {
+            this["installedAt"] = "";
         }
 
         Object.assign(this, $$source);

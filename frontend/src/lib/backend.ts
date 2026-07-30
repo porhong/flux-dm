@@ -170,7 +170,7 @@ const siteProfileSchema=z.object({id:z.string(),name:z.string(),hostPattern:z.st
 export type SiteProfile=z.infer<typeof siteProfileSchema>
 const updateChannelSchema=z.enum(["stable","preview"])
 const updatePhaseSchema=z.enum(["idle","checking","available","downloading","ready","installing","error"])
-export const updateStatusSchema=z.object({currentVersion:z.string(),channel:updateChannelSchema,autoDownload:z.boolean(),phase:updatePhaseSchema,availableVersion:z.string(),releaseNotesUrl:z.string(),downloadedBytes:z.number(),totalBytes:z.number(),lastCheckedAt:z.string(),lastError:z.string(),preview:z.boolean(),canInstall:z.boolean()})
+export const updateStatusSchema=z.object({currentVersion:z.string(),channel:updateChannelSchema,autoDownload:z.boolean(),phase:updatePhaseSchema,availableVersion:z.string(),releaseNotesUrl:z.string(),downloadedBytes:z.number(),totalBytes:z.number(),lastCheckedAt:z.string(),lastError:z.string(),preview:z.boolean(),canInstall:z.boolean(),installedVersion:z.string(),installedAt:z.string()})
 export type UpdateStatus=z.infer<typeof updateStatusSchema>
 export interface UpdatePreferencesInput { channel:z.infer<typeof updateChannelSchema>; autoDownload:boolean }
 

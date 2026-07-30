@@ -6,6 +6,7 @@ package update
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -41,17 +42,20 @@ const (
 var ReleaseVersion = "1.0.0"
 
 type StoredState struct {
-	Channel          string
-	AutoDownload     bool
-	Phase            string
-	AvailableVersion string
-	ReleaseNotesURL  string
-	InstallerPath    string
-	InstallerSHA256  string
-	DownloadedBytes  int64
-	TotalBytes       int64
-	LastCheckedAt    string
-	LastError        string
+	Channel           string
+	AutoDownload      bool
+	Phase             string
+	AvailableVersion  string
+	ReleaseNotesURL   string
+	InstallerPath     string
+	InstallerSHA256   string
+	DownloadedBytes   int64
+	TotalBytes        int64
+	LastCheckedAt     string
+	LastError         string
+	InstallationToken string
+	InstalledVersion  string
+	InstalledAt       string
 }
 
 type Repository interface {
@@ -61,7 +65,7 @@ type Repository interface {
 
 type Verifier interface{ VerifyProductionInstaller(path string) error }
 type Launcher interface {
-	Launch(ctx context.Context, installerPath string) error
+	Launch(ctx context.Context, installerPath string, handoff Handoff) error
 }
 type Notifier func(Status)
 
@@ -94,6 +98,8 @@ type Status struct {
 	LastError        string `json:"lastError"`
 	Preview          bool   `json:"preview"`
 	CanInstall       bool   `json:"canInstall"`
+	InstalledVersion string `json:"installedVersion"`
+	InstalledAt      string `json:"installedAt"`
 }
 
 type manifest struct {
@@ -181,9 +187,11 @@ func (m *Manager) Load(ctx context.Context) (Status, error) {
 	}
 	m.mu.Lock()
 	m.state = state
-	status := m.statusLocked()
 	m.mu.Unlock()
-	return status, nil
+	if err := m.reconcileHandoff(ctx); err != nil {
+		return Status{}, err
+	}
+	return m.Status(), nil
 }
 func (m *Manager) SavePreferences(ctx context.Context, preferences Preferences) (Status, error) {
 	if preferences.Channel != ChannelStable && preferences.Channel != ChannelPreview {
@@ -206,7 +214,7 @@ func (m *Manager) SavePreferences(ctx context.Context, preferences Preferences) 
 }
 func (m *Manager) Status() Status { m.mu.Lock(); defer m.mu.Unlock(); return m.statusLocked() }
 func (m *Manager) statusLocked() Status {
-	return Status{CurrentVersion: m.config.CurrentVersion, Channel: defaultChannel(m.state.Channel), AutoDownload: m.state.AutoDownload, Phase: defaultPhase(m.state.Phase), AvailableVersion: m.state.AvailableVersion, ReleaseNotesURL: m.state.ReleaseNotesURL, DownloadedBytes: m.state.DownloadedBytes, TotalBytes: m.state.TotalBytes, LastCheckedAt: m.state.LastCheckedAt, LastError: m.state.LastError, Preview: m.state.Channel == ChannelPreview, CanInstall: m.state.Phase == PhaseReady && m.state.InstallerPath != ""}
+	return Status{CurrentVersion: m.config.CurrentVersion, Channel: defaultChannel(m.state.Channel), AutoDownload: m.state.AutoDownload, Phase: defaultPhase(m.state.Phase), AvailableVersion: m.state.AvailableVersion, ReleaseNotesURL: m.state.ReleaseNotesURL, DownloadedBytes: m.state.DownloadedBytes, TotalBytes: m.state.TotalBytes, LastCheckedAt: m.state.LastCheckedAt, LastError: m.state.LastError, Preview: m.state.Channel == ChannelPreview, CanInstall: m.state.Phase == PhaseReady && m.state.InstallerPath != "", InstalledVersion: m.state.InstalledVersion, InstalledAt: m.state.InstalledAt}
 }
 func (m *Manager) emit() {
 	m.mu.Lock()
@@ -382,8 +390,94 @@ func (m *Manager) Install(ctx context.Context, confirmPreview bool) error {
 	if _, err := os.Stat(state.InstallerPath); err != nil {
 		return errors.New("verified installer is no longer available")
 	}
-	m.setPhase(ctx, PhaseInstalling, "")
-	return m.config.Launcher.Launch(ctx, state.InstallerPath)
+	token, err := newToken()
+	if err != nil {
+		return err
+	}
+	handoff := Handoff{TargetVersion: state.AvailableVersion, Token: token, ResultPath: m.handoffResultPath()}
+	if err := os.Remove(handoff.ResultPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	m.mu.Lock()
+	m.state.Phase = PhaseInstalling
+	m.state.LastError = ""
+	m.state.InstallationToken = token
+	pending := m.state
+	m.mu.Unlock()
+	if err := m.repository.Save(ctx, pending); err != nil {
+		return err
+	}
+	m.emit()
+	if err := m.config.Launcher.Launch(ctx, state.InstallerPath, handoff); err != nil {
+		m.restoreReady(ctx, "Could not start the update helper. Retry restart and install.")
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) handoffResultPath() string {
+	return filepath.Join(m.config.CacheDir, "launcher", "result.json")
+}
+
+func (m *Manager) reconcileHandoff(ctx context.Context) error {
+	m.mu.Lock()
+	state := m.state
+	m.mu.Unlock()
+	if state.Phase != PhaseInstalling || !validToken(state.InstallationToken) || !validVersion(state.AvailableVersion) {
+		return nil
+	}
+	result, err := ReadHandoffResult(m.handoffResultPath())
+	if err != nil || result.Token != state.InstallationToken || result.TargetVersion != state.AvailableVersion {
+		m.restoreReady(ctx, "The update installation could not be confirmed. Retry restart and install.")
+		return nil
+	}
+	_ = os.Remove(m.handoffResultPath())
+	if result.Succeeded && m.config.CurrentVersion == state.AvailableVersion {
+		m.mu.Lock()
+		m.state.Phase = PhaseIdle
+		m.state.AvailableVersion = ""
+		m.state.ReleaseNotesURL = ""
+		m.state.InstallerPath = ""
+		m.state.InstallerSHA256 = ""
+		m.state.DownloadedBytes = 0
+		m.state.TotalBytes = 0
+		m.state.LastError = ""
+		m.state.InstallationToken = ""
+		m.state.InstalledVersion = m.config.CurrentVersion
+		m.state.InstalledAt = time.Now().UTC().Format(time.RFC3339Nano)
+		confirmed := m.state
+		m.mu.Unlock()
+		if err := m.repository.Save(ctx, confirmed); err != nil {
+			return err
+		}
+		m.emit()
+		return nil
+	}
+	if result.Succeeded {
+		m.restoreReady(ctx, "The installed FluxDM version did not match the update. Retry restart and install.")
+	} else {
+		m.restoreReady(ctx, safeHandoffFailure(result.Failure))
+	}
+	return nil
+}
+
+func (m *Manager) restoreReady(ctx context.Context, message string) {
+	m.mu.Lock()
+	m.state.Phase = PhaseReady
+	m.state.LastError = message
+	m.state.InstallationToken = ""
+	state := m.state
+	m.mu.Unlock()
+	_ = m.repository.Save(ctx, state)
+	m.emit()
+}
+
+func newToken() (string, error) {
+	value := make([]byte, 32)
+	if _, err := rand.Read(value); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(value), nil
 }
 func (m *Manager) setPhase(ctx context.Context, phase, message string) {
 	m.mu.Lock()
