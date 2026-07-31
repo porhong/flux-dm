@@ -110,6 +110,22 @@ describe("App", () => {
     expect(screen.getByText("archive.zip")).toBeInTheDocument()
   })
 
+  it("refreshes after a Wails handoff event delivered as an event envelope", async () => {
+    const pending = {
+      pendingId: "browser-pending-event", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
+    }
+    listPendingBrowserDownloadsMock.mockResolvedValueOnce([]).mockResolvedValueOnce([pending])
+    render(<BrowserConfirmationSurface />)
+
+    await waitFor(() => expect(hideBrowserConfirmationMock).toHaveBeenCalledOnce())
+    const dispatch = (window as Window & { _wails?: { dispatchWailsEvent?: (event: { name: string; data: unknown }) => void } })._wails?.dispatchWailsEvent
+    if (!dispatch) throw new Error("Wails event dispatcher is unavailable")
+    dispatch({ name: "browser:handoff-pending", data: pending })
+
+    expect(await screen.findByRole("dialog", { name: "Start this download?" })).toBeInTheDocument()
+    expect(screen.getByText("archive.zip")).toBeInTheDocument()
+  })
+
   it("shows a loading state while a browser handoff is being recovered", async () => {
     let resolvePending: (requests: import("@/lib/backend").DownloadRequestEvent[]) => void = () => undefined
     listPendingBrowserDownloadsMock.mockReturnValue(new Promise((resolve) => { resolvePending = resolve }))

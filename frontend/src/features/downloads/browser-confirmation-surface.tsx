@@ -4,7 +4,7 @@ import { AlertCircle, LoaderCircle } from "lucide-react"
 import { Events } from "@wailsio/runtime"
 import { Button } from "@/components/ui/button"
 import { ConfirmDownloadDialog } from "./confirm-download-dialog"
-import { hideBrowserConfirmation, isDownloadRequestEvent, listPendingBrowserDownloads, type DownloadRequestEvent } from "@/lib/backend"
+import { hideBrowserConfirmation, listPendingBrowserDownloads, type DownloadRequestEvent } from "@/lib/backend"
 
 // This surface lives in its own Wails window. It intentionally has no shell,
 // navigation, or download history: browser handoffs should not disturb the
@@ -38,12 +38,11 @@ export function BrowserConfirmationSurface() {
 
   useEffect(() => {
     isMounted.current = true
-    // The direct window event is the reliable signal for a newly opened
-    // confirmation surface. Accept the legacy empty signal too: refresh() is
-    // idempotent and the pending store remains the source of truth.
-    const onRequested = (payload: unknown) => {
-      if (payload === null || payload === undefined || isDownloadRequestEvent(payload)) void refresh()
-    }
+    // Wails v3 invokes callbacks with a WailsEvent envelope, not the emitted
+    // payload itself. The event name is enough to trigger a refresh; the
+    // pending store remains the authoritative source and also handles events
+    // that arrived before this webview registered its listener.
+    const onRequested = () => { void refresh() }
     Events.On("browser:handoff-pending", onRequested)
     Events.On("download:requested", onRequested)
     void Promise.resolve().then(refresh)
