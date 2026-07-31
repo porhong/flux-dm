@@ -57,40 +57,36 @@ func TestEngineCancelledBeforeFileIOLeavesNoTemporaryFile(t *testing.T) {
 }
 
 func TestEngineDynamicallySplitsSlowTailWithoutCorruption(t *testing.T) {
-	splitObserved := false
-	for run := 0; run < 5; run++ {
-		payload := deterministicPayload(8 * 1024 * 1024)
-		server := newPayloadServer(payload, 6*1024*1024)
-		task := segmentedTask(t, server.URL, t.TempDir(), int64(len(payload)), 4)
-		engine := download.NewEngineWithOptions(server.Client(), download.EngineOptions{
-			DynamicSplitMinBytes: 256 * 1024, SlowSegmentThreshold: 20 * time.Millisecond,
-			ProgressInterval: 10 * time.Millisecond,
-		})
-		var last download.Progress
-		var lastMu sync.Mutex
-		err := engine.Download(context.Background(), task, func(progress download.Progress) {
-			lastMu.Lock()
-			last = progress
-			lastMu.Unlock()
-		})
-		server.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
+	payload := deterministicPayload(8 * 1024 * 1024)
+	server := newPayloadServer(payload, 6*1024*1024)
+	defer server.Close()
+	task := segmentedTask(t, server.URL, t.TempDir(), int64(len(payload)), 4)
+	engine := download.NewEngineWithOptions(server.Client(), download.EngineOptions{
+		DynamicSplitMinBytes: 512 * 1024, SlowSegmentThreshold: 75 * time.Millisecond,
+		ProgressInterval: 10 * time.Millisecond,
+	})
+	var last download.Progress
+	var lastMu sync.Mutex
+	err := engine.Download(context.Background(), task, func(progress download.Progress) {
 		lastMu.Lock()
-		lastProgress := last
+		last = progress
 		lastMu.Unlock()
-		splitObserved = splitObserved || len(lastProgress.Segments) > 4
-		if err := download.ValidateSegments(lastProgress.Segments, int64(len(payload))); err != nil {
-			t.Fatal(err)
-		}
-		actual, err := os.ReadFile(task.DestinationPath)
-		if err != nil || sha256.Sum256(actual) != sha256.Sum256(payload) {
-			t.Fatalf("dynamic split corrupted output: %v", err)
-		}
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !splitObserved {
-		t.Fatal("slow tail was not split in any run")
+	lastMu.Lock()
+	lastProgress := last
+	lastMu.Unlock()
+	if len(lastProgress.Segments) <= 4 {
+		t.Fatal("slow tail was not split")
+	}
+	if err := download.ValidateSegments(lastProgress.Segments, int64(len(payload))); err != nil {
+		t.Fatal(err)
+	}
+	actual, err := os.ReadFile(task.DestinationPath)
+	if err != nil || sha256.Sum256(actual) != sha256.Sum256(payload) {
+		t.Fatalf("dynamic split corrupted output: %v", err)
 	}
 }
 
@@ -409,6 +405,14 @@ func newPayloadServer(payload []byte, slowFrom int64) *httptest.Server {
 			w.WriteHeader(http.StatusPartialContent)
 		}
 		slowTail := slowFrom >= 0 && start >= slowFrom
+		if slowTail {
+			// Flush the range headers before pausing so the client starts the
+			// segment and the engine can deterministically observe the idle tail.
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			time.Sleep(250 * time.Millisecond)
+		}
 		for offset := start; offset <= end; {
 			next := offset + 32*1024
 			if next > end+1 {
