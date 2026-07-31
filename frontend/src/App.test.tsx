@@ -110,6 +110,34 @@ describe("App", () => {
     expect(screen.getByText("archive.zip")).toBeInTheDocument()
   })
 
+  it("shows a loading state while a browser handoff is being recovered", async () => {
+    let resolvePending: (requests: import("@/lib/backend").DownloadRequestEvent[]) => void = () => undefined
+    listPendingBrowserDownloadsMock.mockReturnValue(new Promise((resolve) => { resolvePending = resolve }))
+
+    render(<BrowserConfirmationSurface />)
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Preparing your download")
+    resolvePending([{
+      pendingId: "browser-pending-loading", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
+    }])
+    expect(await screen.findByRole("dialog", { name: "Start this download?" })).toBeInTheDocument()
+  })
+
+  it("allows retrying when the browser handoff cannot be loaded", async () => {
+    const user = userEvent.setup()
+    listPendingBrowserDownloadsMock
+      .mockRejectedValueOnce(new Error("FluxDM could not load the request."))
+      .mockResolvedValueOnce([{
+        pendingId: "browser-pending-retry", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
+      }])
+
+    render(<BrowserConfirmationSurface />)
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("FluxDM could not load the request.")
+    await user.click(screen.getByRole("button", { name: "Try again" }))
+    expect(await screen.findByRole("dialog", { name: "Start this download?" })).toBeInTheDocument()
+  })
+
   it("starts an executable browser handoff without an acknowledgement", async () => {
     const user = userEvent.setup()
     probeURLMock.mockResolvedValue({

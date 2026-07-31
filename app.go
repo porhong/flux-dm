@@ -74,11 +74,15 @@ func (a *App) hideMainWindow() {
 		a.mainWindow.Hide()
 	}
 }
-func (a *App) showConfirmationWindow() {
+func (a *App) showConfirmationWindow(request application.DownloadRequestEvent) {
 	if a.confirmWindow != nil {
 		a.confirmWindow.Show()
 		a.confirmWindow.Focus()
-		a.confirmWindow.EmitEvent("browser:handoff-pending", nil)
+		// Send the request directly to the confirmation window as well as
+		// publishing the application-wide event. This avoids relying on event
+		// delivery to a newly-created webview, which can otherwise leave the
+		// compact window visible before it has anything to render.
+		a.confirmWindow.EmitEvent("browser:handoff-pending", request)
 	}
 }
 
@@ -150,7 +154,12 @@ func (a *App) startup(ctx context.Context) {
 	})
 	a.bus.Subscribe(events.DownloadRequested, func(event events.Event) {
 		a.emit("download:requested", event.Data)
-		a.showConfirmationWindow()
+		request, ok := event.Data.(application.DownloadRequestEvent)
+		if !ok {
+			a.logger.Error("browser download request had an invalid event payload", nil)
+			return
+		}
+		a.showConfirmationWindow(request)
 	})
 	a.bus.Subscribe(events.UpdateChanged, func(event events.Event) { a.emit("update:changed", event.Data) })
 	httpClient := transport.NewHTTPClient()
