@@ -24,6 +24,15 @@ $app = (Resolve-Path -LiteralPath $AppPath).Path
 $nativeHost = (Resolve-Path -LiteralPath $NativeHostPath).Path
 $updateLauncher = (Resolve-Path -LiteralPath $UpdateLauncherPath).Path
 $extension = (Resolve-Path -LiteralPath $ExtensionPath).Path
+$installerProject = Join-Path $root 'build\windows\installer\project.nsi'
+if (-not (Test-Path -LiteralPath $installerProject)) { throw "NSIS project file is missing: $installerProject" }
+$installerScript = Get-Content -Raw -Encoding utf8 -LiteralPath $installerProject
+if ($installerScript -notmatch '(?m)^\s*!insertmacro\s+wails\.writeUninstaller\s*$') {
+  throw 'NSIS project does not create uninstall.exe during installation.'
+}
+if ($RequireSignatures -and $installerScript -notmatch '(?m)^\s*!uninstfinalize\b') {
+  throw 'Signed NSIS project does not finalize the generated uninstaller.'
+}
 $temporaryRoot = Join-Path $env:TEMP ('fluxdm-installer-payload-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
 
@@ -41,7 +50,6 @@ try {
     'FluxDM.exe',
     'FluxDM.NativeHost.exe',
     'FluxDM.UpdateLauncher.exe',
-    'uninstall.exe',
     'browser-extension\manifest.json',
     'browser-extension\service-worker.js',
     'browser-extension\options.html',
@@ -83,14 +91,16 @@ try {
     app = (Get-AuthenticodeSignature -LiteralPath (Join-Path $temporaryRoot 'FluxDM.exe')).Status.ToString()
     nativeHost = (Get-AuthenticodeSignature -LiteralPath (Join-Path $temporaryRoot 'FluxDM.NativeHost.exe')).Status.ToString()
     updateLauncher = (Get-AuthenticodeSignature -LiteralPath (Join-Path $temporaryRoot 'FluxDM.UpdateLauncher.exe')).Status.ToString()
-    uninstaller = (Get-AuthenticodeSignature -LiteralPath (Join-Path $temporaryRoot 'uninstall.exe')).Status.ToString()
+    # NSIS creates uninstall.exe on the target machine with WriteUninstaller;
+    # it is executable data within the installer rather than a file 7-Zip can
+    # extract from the installer archive.
+    uninstaller = if ($RequireSignatures) { 'Verified by signed NSIS compilation' } else { 'Created during installation' }
   }
   if ($RequireSignatures) {
     $null = Assert-ValidSignature $installer 'Installer'
     $null = Assert-ValidSignature (Join-Path $temporaryRoot 'FluxDM.exe') 'Packaged desktop executable'
     $null = Assert-ValidSignature (Join-Path $temporaryRoot 'FluxDM.NativeHost.exe') 'Packaged native host'
     $null = Assert-ValidSignature (Join-Path $temporaryRoot 'FluxDM.UpdateLauncher.exe') 'Packaged update launcher'
-    $null = Assert-ValidSignature (Join-Path $temporaryRoot 'uninstall.exe') 'Embedded uninstaller'
   }
 
   [ordered]@{
@@ -98,6 +108,7 @@ try {
     installerSHA256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash
     nsisPayloadFiles = @(Get-ChildItem -LiteralPath $temporaryRoot -Recurse -File).Count
     requiredFiles = $required
+    uninstaller = [ordered]@{ createdDuringInstallation = $true; source = 'wails.writeUninstaller' }
     matchingInputs = $comparisons
     extension = [ordered]@{ manifestVersion = $manifest.manifest_version; version = $manifest.version }
     webViewBootstrapper = [ordered]@{

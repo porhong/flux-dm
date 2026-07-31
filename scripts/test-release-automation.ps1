@@ -117,6 +117,9 @@ try {
   Assert-True ($buildScript.Contains('$productVersion=&')) 'Release build must keep the product version separate from the release-version parameter.'
   Assert-True (-not $buildScript.Contains('$releaseVersion=&')) 'Release build must not overwrite the release-version parameter with the product version.'
 	Assert-True ($buildScript.Contains('FluxDM.UpdateLauncher.exe')) 'Release build must package the update launcher.'
+  $payloadVerifier = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $PSScriptRoot 'verify-installer-payload.ps1')
+  Assert-True (-not $payloadVerifier.Contains("'uninstall.exe',")) 'Payload verification must not expect uninstall.exe to be archive-extractable.'
+  Assert-True ($payloadVerifier.Contains('wails.writeUninstaller')) 'Payload verification must verify that NSIS creates the uninstaller during installation.'
 
   $installerScript = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root 'build\windows\installer\project.nsi')
   foreach ($required in @('Icon "..\icon.ico"', 'UninstallIcon "..\icon.ico"')) {
