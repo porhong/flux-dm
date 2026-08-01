@@ -369,7 +369,7 @@ describe("App", () => {
 		const dispatch = (window as Window & { _wails?: { dispatchWailsEvent?: (event: { name: string; data: unknown }) => void } })._wails?.dispatchWailsEvent
 		if (!dispatch) throw new Error("Wails event dispatcher is unavailable")
 		dispatch({ name: "update:changed", data: updateStatusFixture({ phase: "error", lastError: "The update manifest could not be verified." }) })
-		expect(await screen.findByRole("alert")).toHaveTextContent("The update manifest could not be verified.")
+		expect(await screen.findByText("The update manifest could not be verified.")).toHaveAttribute("role", "alert")
 	})
 
 	it("shows update download progress and blocks conflicting update actions", async () => {
