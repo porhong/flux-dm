@@ -28,7 +28,7 @@ go test -race ./...
 npm run lint
 npm run typecheck
 npm run test
-wails build
+wails3 build
 ```
 
 Run npm commands from `frontend/`.

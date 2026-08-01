@@ -35,6 +35,9 @@ const (
 	PhaseError              = "error"
 	maxManifestBytes  int64 = 128 << 10
 	maxInstallerBytes int64 = 2 << 30
+	// downloadProgressInterval keeps update notifications responsive without
+	// overwhelming the UI event bridge on fast connections.
+	downloadProgressInterval = 250 * time.Millisecond
 )
 
 // ReleaseVersion is set by release builds. Version is the numeric product
@@ -343,7 +346,7 @@ func (m *Manager) Download(ctx context.Context, release githubRelease, parsed ma
 	}
 	hash := sha256.New()
 	writer := io.MultiWriter(file, hash)
-	written, copyErr := io.Copy(writer, io.LimitReader(response.Body, maxInstallerBytes+1))
+	written, copyErr := m.copyInstaller(ctx, writer, io.LimitReader(response.Body, maxInstallerBytes+1))
 	closeErr := file.Close()
 	if copyErr != nil {
 		return m.fail(ctx, copyErr)
@@ -376,6 +379,47 @@ func (m *Manager) Download(ctx context.Context, release githubRelease, parsed ma
 	}
 	m.emit()
 	return m.Status(), nil
+}
+
+func (m *Manager) copyInstaller(ctx context.Context, destination io.Writer, source io.Reader) (int64, error) {
+	buffer := make([]byte, 128<<10)
+	var written int64
+	lastReported := time.Time{}
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return written, err
+		}
+		read, readErr := source.Read(buffer)
+		if read > 0 {
+			count, writeErr := destination.Write(buffer[:read])
+			written += int64(count)
+			if writeErr != nil {
+				return written, writeErr
+			}
+			if count != read {
+				return written, io.ErrShortWrite
+			}
+			if lastReported.IsZero() || time.Since(lastReported) >= downloadProgressInterval {
+				m.setDownloadProgress(written)
+				lastReported = time.Now()
+			}
+		}
+		if errors.Is(readErr, io.EOF) {
+			m.setDownloadProgress(written)
+			return written, nil
+		}
+		if readErr != nil {
+			return written, readErr
+		}
+	}
+}
+
+func (m *Manager) setDownloadProgress(downloaded int64) {
+	m.mu.Lock()
+	m.state.DownloadedBytes = downloaded
+	m.mu.Unlock()
+	m.emit()
 }
 func (m *Manager) Install(ctx context.Context, confirmPreview bool) error {
 	m.mu.Lock()

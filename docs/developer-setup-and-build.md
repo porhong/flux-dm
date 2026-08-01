@@ -36,10 +36,10 @@ Install Go, Node.js 22, Git, and the Evergreen WebView2 Runtime using your organ
 Install the repository's Wails version with Go:
 
 ```powershell
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.119
 ```
 
-Go installs the executable in `$(go env GOPATH)\bin`. If `wails` is not found after installation, add that directory to your user `PATH`, reopen PowerShell, and try again.
+Go installs the executable in `$(go env GOPATH)\bin`. If `wails3` is not found after installation, add that directory to your user `PATH`, reopen PowerShell, and try again.
 
 Check the tools before continuing:
 
@@ -85,19 +85,19 @@ Use `npm ci` for a reproducible installation. It reads `frontend/package-lock.js
 Start the Wails development server from the repository root:
 
 ```powershell
-wails dev
+wails3 dev
 ```
 
 Wails starts the Go application and the Vite development server, then opens the FluxDM desktop window. Changes to the React/TypeScript interface are served by Vite; Go changes cause the desktop process to rebuild or restart as directed by Wails. Stop the session with `Ctrl+C` in the terminal.
 
 The development workflow is:
 
-1. Keep `wails dev` running in one terminal.
+1. Keep `wails3 dev` running in one terminal.
 2. Edit backend code under `internal/`, `cmd/`, or the root Go files, and edit UI code under `frontend/src/features/`.
 3. Test the changed feature in the desktop window.
 4. Run the validation commands in [Section 6](#6-validate-a-change) before handing off the change.
 
-Do not edit `frontend/wailsjs` by hand. Wails generates these bindings from the public methods exposed by the Go application. Run `wails dev` or a Wails build after changing bindings so generated output is refreshed.
+Do not edit `frontend/wailsjs` by hand. Wails generates these bindings from the public methods exposed by the Go application. Run `wails3 dev` or a Wails build after changing bindings so generated output is refreshed.
 
 ### Run only the frontend
 
@@ -108,7 +108,7 @@ Set-Location frontend
 npm run dev
 ```
 
-This is useful for layout work, but Wails bindings and desktop-only behavior require `wails dev` for end-to-end testing. Vite's production output goes to `dist/` at the repository root, where the Go application embeds it.
+This is useful for layout work, but Wails bindings and desktop-only behavior require `wails3 dev` for end-to-end testing. Vite's production output goes to `dist/` at the repository root, where the Go application embeds it.
 
 ## 5. Local state, logs, and safe cleanup
 
@@ -140,7 +140,7 @@ npm run typecheck
 npm run test
 Pop-Location
 
-wails build
+wails3 build
 ```
 
 `go fmt ./...` modifies Go source files. Check `git status` afterward; a formatting-only diff means the source should be committed in formatted form. The race test needs a working compiler and `CGO_ENABLED=1`; set it for the current shell if necessary:
@@ -157,7 +157,7 @@ For broader release-oriented checks, use the release script described in [Sectio
 Create an unsigned local desktop build with:
 
 ```powershell
-wails build
+wails3 build
 ```
 
 The build performs the following work:
@@ -171,7 +171,7 @@ The build performs the following work:
 For a clean, smaller local candidate, use the same flags as the release workflow:
 
 ```powershell
-wails build -clean -trimpath -nocolour -ldflags '-s -w'
+wails3 build -clean -trimpath -nocolour -ldflags '-s -w'
 ```
 
 The result is unsigned and is suitable for development or local QA only. Do not publish it as a production release.
@@ -265,8 +265,8 @@ Local validation should match this behavior as closely as practical. CI does not
 
 | Symptom | Likely cause and fix |
 | --- | --- |
-| `wails` is not recognized | Run the Wails installation command, add `$(go env GOPATH)\bin` to `PATH`, and reopen PowerShell. |
-| `wails dev` opens no usable window | Install or update the Microsoft Edge WebView2 Evergreen Runtime, then restart the command. |
+| `wails3` is not recognized | Run the Wails v3 installation command, add `$(go env GOPATH)\bin` to `PATH`, and reopen PowerShell. |
+| `wails3 dev` opens no usable window | Install or update the Microsoft Edge WebView2 Evergreen Runtime, then restart the command. |
 | `go test -race ./...` fails before tests run | Install GCC or Clang, expose it on `PATH`, and set `CGO_ENABLED=1` for the shell. |
 | `npm ci` fails | Use Node 22 or newer and do not modify `package.json` without updating `frontend/package-lock.json`. |
 | Installer build cannot find `makensis.exe` | Install NSIS, add it to `PATH`, or pass `-MakeNSISPath` to `build-release.ps1`. |

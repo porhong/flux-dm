@@ -200,7 +200,7 @@ npm run typecheck
 npm run test
 Pop-Location
 
-wails build
+wails3 build
 ```
 
 All commands must pass. Do not waive a failing race, integration, lint, typecheck, test, or Wails build check for a production release. Record the commit SHA and validation results in the release ticket.

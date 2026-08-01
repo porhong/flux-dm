@@ -1,6 +1,7 @@
 package update
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -9,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -127,6 +129,33 @@ func TestPreviewInstallationRequiresConfirmation(t *testing.T) {
 	}
 	if err := manager.Install(context.Background(), false); err == nil {
 		t.Fatal("expected preview confirmation error")
+	}
+}
+
+func TestManagerPublishesInstallerDownloadProgress(t *testing.T) {
+	manager := testManager(t)
+	installer := bytes.Repeat([]byte("x"), 256<<10)
+	manager.state = StoredState{Channel: ChannelStable, Phase: PhaseDownloading, TotalBytes: int64(len(installer))}
+
+	var updates []Status
+	manager.SetNotifier(func(status Status) { updates = append(updates, status) })
+
+	written, err := manager.copyInstaller(context.Background(), io.Discard, bytes.NewReader(installer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if written != int64(len(installer)) {
+		t.Fatalf("written=%d, want %d", written, len(installer))
+	}
+	if len(updates) < 2 {
+		t.Fatalf("received %d progress updates, want at least 2", len(updates))
+	}
+	if updates[0].Phase != PhaseDownloading || updates[0].DownloadedBytes == 0 || updates[0].DownloadedBytes >= int64(len(installer)) {
+		t.Fatalf("first update is not intermediate download progress: %#v", updates[0])
+	}
+	last := updates[len(updates)-1]
+	if last.DownloadedBytes != int64(len(installer)) || last.TotalBytes != int64(len(installer)) {
+		t.Fatalf("final progress update=%#v", last)
 	}
 }
 func TestCompareVersionsOrdersRCBeforeFinal(t *testing.T) {

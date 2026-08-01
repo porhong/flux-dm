@@ -7,12 +7,13 @@ import { useUIStore } from "@/stores/ui-store"
 import App from "./App"
 import { BrowserConfirmationSurface } from "./features/downloads/browser-confirmation-surface"
 
-const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, getUpdateStatusMock, healthCheckMock, hideBrowserConfirmationMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
+const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, downloadUpdateMock, getUpdateStatusMock, healthCheckMock, hideBrowserConfirmationMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
   cancelDownloadMock: vi.fn(),
 	checkForUpdatesMock: vi.fn(),
   confirmBrowserDownloadMock: vi.fn(),
   defaultDownloadDirectoryMock: vi.fn(),
   discardBrowserDownloadMock: vi.fn(),
+	downloadUpdateMock: vi.fn(),
 	getUpdateStatusMock: vi.fn(),
   healthCheckMock: vi.fn(),
 	 hideBrowserConfirmationMock: vi.fn(),
@@ -37,6 +38,7 @@ vi.mock("@/lib/backend", async (importOriginal) => {
     confirmBrowserDownload: confirmBrowserDownloadMock,
     defaultDownloadDirectory: defaultDownloadDirectoryMock,
     discardBrowserDownload: discardBrowserDownloadMock,
+		downloadUpdate: downloadUpdateMock,
 		getUpdateStatus: getUpdateStatusMock,
     healthCheck: healthCheckMock,
 		hideBrowserConfirmation: hideBrowserConfirmationMock,
@@ -69,6 +71,7 @@ describe("App", () => {
     discardBrowserDownloadMock.mockResolvedValue(undefined)
 		getUpdateStatusMock.mockResolvedValue(updateStatusFixture())
 		checkForUpdatesMock.mockResolvedValue(updateStatusFixture({ phase: "available", availableVersion: "1.1.0" }))
+		downloadUpdateMock.mockResolvedValue(updateStatusFixture({ phase: "ready", availableVersion: "1.1.0", canInstall: true }))
     selectDestinationDirectoryMock.mockResolvedValue("")
     healthCheckMock.mockResolvedValue({
       status: "ok",
@@ -95,6 +98,21 @@ describe("App", () => {
     expect(healthCheckMock).toHaveBeenCalledOnce()
   })
 
+  it("adds a browser-confirmed download to the transfer queue from a Wails event envelope", async () => {
+    const browserDownload = downloadFixture({
+      id: "browser-confirmed", fileName: "browser-file.zip", state: "queued", createdAt: "2026-02-01T00:00:00Z",
+    })
+    render(<App />)
+
+    await screen.findByText("No downloads yet")
+    const dispatch = (window as Window & { _wails?: { dispatchWailsEvent?: (event: { name: string; data: unknown }) => void } })._wails?.dispatchWailsEvent
+    if (!dispatch) throw new Error("Wails event dispatcher is unavailable")
+    dispatch({ name: "download:updated", data: browserDownload })
+
+    expect(await screen.findByText("browser-file.zip")).toBeInTheDocument()
+    expect(screen.getByText("1 total downloads")).toBeInTheDocument()
+  })
+
   it("recovers a browser handoff that arrived before the event listener", async () => {
     probeURLMock.mockResolvedValue({
       url: "https://example.test/archive.zip", finalUrl: "https://example.test/archive.zip", fileName: "archive.zip",
@@ -106,7 +124,7 @@ describe("App", () => {
 
     render(<BrowserConfirmationSurface />)
 
-    expect(await screen.findByRole("dialog", { name: "Start this download?" })).toBeInTheDocument()
+    expect(await screen.findByRole("main", { name: "Ready to download" })).toBeInTheDocument()
     expect(screen.getByText("archive.zip")).toBeInTheDocument()
   })
 
@@ -122,7 +140,7 @@ describe("App", () => {
     if (!dispatch) throw new Error("Wails event dispatcher is unavailable")
     dispatch({ name: "browser:handoff-pending", data: pending })
 
-    expect(await screen.findByRole("dialog", { name: "Start this download?" })).toBeInTheDocument()
+    expect(await screen.findByRole("main", { name: "Ready to download" })).toBeInTheDocument()
     expect(screen.getByText("archive.zip")).toBeInTheDocument()
   })
 
@@ -136,7 +154,7 @@ describe("App", () => {
     resolvePending([{
       pendingId: "browser-pending-loading", url: "https://example.test/archive.zip", suggestedFilename: "archive.zip", referrer: "",
     }])
-    expect(await screen.findByRole("dialog", { name: "Start this download?" })).toBeInTheDocument()
+    expect(await screen.findByRole("main", { name: "Ready to download" })).toBeInTheDocument()
   })
 
   it("allows retrying when the browser handoff cannot be loaded", async () => {
@@ -151,7 +169,7 @@ describe("App", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("FluxDM could not load the request.")
     await user.click(screen.getByRole("button", { name: "Try again" }))
-    expect(await screen.findByRole("dialog", { name: "Start this download?" })).toBeInTheDocument()
+    expect(await screen.findByRole("main", { name: "Ready to download" })).toBeInTheDocument()
   })
 
   it("starts an executable browser handoff without an acknowledgement", async () => {
@@ -167,7 +185,7 @@ describe("App", () => {
 
     render(<BrowserConfirmationSurface />)
 
-    await screen.findByRole("dialog", { name: "Start this download?" })
+    await screen.findByRole("main", { name: "Ready to download" })
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Start download" }))
 
@@ -191,7 +209,7 @@ describe("App", () => {
 
     render(<BrowserConfirmationSurface />)
 
-    await screen.findByRole("dialog", { name: "Start this download?" })
+    await screen.findByRole("main", { name: "Ready to download" })
     await user.click(screen.getByRole("button", { name: "Browse destination folder" }))
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Destination folder" })).toHaveValue("D:\\Downloads"))
     await user.click(screen.getByRole("button", { name: "Start download" }))
@@ -210,7 +228,7 @@ describe("App", () => {
 
     render(<BrowserConfirmationSurface />)
 
-    await screen.findByRole("dialog", { name: "Start this download?" })
+    await screen.findByRole("main", { name: "Ready to download" })
     expect(await screen.findByText("FluxDM could not inspect that URL.")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Start download" })).toBeDisabled()
     await user.click(screen.getByRole("button", { name: "Cancel" }))
@@ -334,6 +352,34 @@ describe("App", () => {
 		await user.click(screen.getByRole("button", { name: "Check now" }))
 		await waitFor(() => expect(checkForUpdatesMock).toHaveBeenCalledOnce())
 		expect(await screen.findByText("FluxDM 1.1.0 is available")).toBeInTheDocument()
+	})
+
+	it("shows update download progress and blocks conflicting update actions", async () => {
+		const user = userEvent.setup()
+		getUpdateStatusMock.mockResolvedValue(updateStatusFixture({
+			phase: "downloading", availableVersion: "1.1.0", downloadedBytes: 2 * 1024 * 1024, totalBytes: 8 * 1024 * 1024,
+		}))
+		render(<App />)
+		await user.click(screen.getByRole("button", { name: "Settings" }))
+		expect(await screen.findByText("Downloading and verifying update")).toBeInTheDocument()
+		expect(screen.getByRole("progressbar", { name: "Update download progress" })).toHaveAttribute("aria-valuenow", "25")
+		expect(screen.getByText("2.0 MB of 8.0 MB")).toBeInTheDocument()
+		expect(screen.getByRole("button", { name: "Check now" })).toBeDisabled()
+		expect(screen.getByLabelText("Preview updates")).toBeDisabled()
+	})
+
+	it("shows loading feedback immediately after starting an update download", async () => {
+		const user = userEvent.setup()
+		getUpdateStatusMock.mockResolvedValue(updateStatusFixture({ phase: "available", availableVersion: "1.1.0" }))
+		let resolveDownload: (status: import("@/lib/backend").UpdateStatus) => void = () => undefined
+		downloadUpdateMock.mockImplementation(() => new Promise((resolve) => { resolveDownload = resolve }))
+		render(<App />)
+		await user.click(screen.getByRole("button", { name: "Settings" }))
+		await user.click(await screen.findByRole("button", { name: "Download update" }))
+		expect(downloadUpdateMock).toHaveBeenCalledOnce()
+		expect(screen.getByRole("button", { name: "Starting download…" })).toBeDisabled()
+		resolveDownload(updateStatusFixture({ phase: "ready", availableVersion: "1.1.0", canInstall: true }))
+		await screen.findByRole("button", { name: "Restart and install" })
 	})
 
 	it("shows a confirmed installed release and retry install state", async () => {

@@ -46,11 +46,11 @@ export function DownloadsSection({ health, hasBackendError, addDialogOpen, onAdd
     void listDownloads().then((items) => { if (mounted) setDownloads(items) }).catch(() => { if (mounted) setLoadError("Could not load download history.") })
     void Promise.all([listCategories(), listQueues()]).then(([nextCategories, nextQueues]) => { if (mounted) { setCategories(nextCategories); setQueues(nextQueues) } }).catch(() => undefined)
     Events.On("download:updated", (payload: unknown) => {
-      const parsed = downloadSchema.safeParse(payload)
+      const parsed = downloadSchema.safeParse(eventData(payload))
       if (parsed.success) upsertDownload(setDownloads, parsed.data)
     })
     Events.On("download:progress", (payload: unknown) => {
-      const parsed = progressSchema.safeParse(payload)
+      const parsed = progressSchema.safeParse(eventData(payload))
       if (parsed.success) publishProgress(parsed.data)
     })
     return () => {
@@ -226,6 +226,7 @@ function CompletedFileDialog({ dialog, onOpenChange, onCompleted, onError }: { d
 function Property({ label, value }: { label: string; value: string }) { return <><dt className="text-slate-500">{label}</dt><dd className="min-w-0 break-all text-slate-200">{value}</dd></> }
 function EmptyDownloads({ onAdd }: { onAdd: () => void }) { return <div className="grid min-h-80 place-items-center p-8 text-center"><div className="max-w-sm"><div className="mx-auto mb-5 grid size-16 place-items-center rounded-2xl border border-white/8 bg-white/[0.03] text-slate-500"><ArrowDownToLine className="size-7" /></div><h3 className="text-lg font-medium">No downloads yet</h3><p className="mt-2 text-sm leading-6 text-slate-500">Add an HTTP or HTTPS URL to start a reliable adaptive download.</p><Button className="mt-5" onClick={onAdd}>Add download</Button></div></div> }
 function upsertDownload(setDownloads: React.Dispatch<React.SetStateAction<DownloadItem[]>>, item: DownloadItem) { publishProgress({ id: item.id, downloadedBytes: item.downloadedBytes, totalBytes: item.totalBytes, speedBytesPerSecond: 0, etaSeconds: -1 }); setDownloads((current) => [item, ...current.filter((existing) => existing.id !== item.id)].sort((left, right) => right.createdAt.localeCompare(left.createdAt))) }
+function eventData(payload: unknown): unknown { return typeof payload === "object" && payload !== null && "data" in payload ? payload.data : payload }
 function Metric({ icon: Icon, label, value, detail }: { icon: typeof Activity; label: string; value: string; detail: string }) { return <div className="rounded-xl border border-white/8 bg-white/[0.025] p-4"><div className="flex items-center justify-between"><span className="text-sm text-slate-400">{label}</span><Icon className="size-4 text-cyan-300" /></div><div className="mt-3 text-2xl font-semibold tracking-tight">{value}</div><div className="mt-1 text-xs text-slate-600">{detail}</div></div> }
 function formatBytes(bytes: number): string { if (bytes < 0) return "—"; if (bytes < 1024) return `${bytes} B`; const units = ["KB", "MB", "GB", "TB"]; let value = bytes / 1024; let unit = units[0]; for (let index = 1; value >= 1024 && index < units.length; index++) { value /= 1024; unit = units[index] } return `${value.toFixed(value >= 10 ? 1 : 2)} ${unit}` }
 function formatRate(bytes: number): string { return bytes > 0 ? `${formatBytes(bytes)}/s` : "—/s" }

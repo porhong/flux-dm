@@ -48,7 +48,7 @@ go mod download
 Push-Location frontend
 npm ci
 Pop-Location
-wails dev
+wails3 dev
 ```
 
 The SQLite database and structured log are stored below the current user's configuration directory in `FluxDM`.
@@ -85,7 +85,7 @@ npm run lint
 npm run typecheck
 npm run test
 Pop-Location
-wails build
+wails3 build
 ```
 
 To independently inspect the final NSIS payload, pass a full 7-Zip executable:
