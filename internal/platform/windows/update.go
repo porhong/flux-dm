@@ -18,6 +18,11 @@ import (
 
 var wintrust = windows.NewLazySystemDLL("wintrust.dll").NewProc("WinVerifyTrust")
 
+// startUpdateHelper is replaced only by unit tests. Keeping the process start
+// behind this seam lets the handoff command be inspected without executing an
+// installer.
+var startUpdateHelper = func(command *exec.Cmd) error { return command.Start() }
+
 var wintrustActionGenericVerifyV2 = windows.GUID{Data1: 0x00AAC56B, Data2: 0xCD44, Data3: 0x11D0, Data4: [8]byte{0x8C, 0xC2, 0x00, 0xC0, 0x4F, 0xC2, 0x95, 0xEE}}
 
 type winTrustFileInfo struct {
@@ -73,6 +78,9 @@ func (AuthenticodeVerifier) VerifyProductionInstaller(path string) error {
 type UpdateLauncher struct{ HelperPath, RestartPath, CacheDir string }
 
 func (l UpdateLauncher) Launch(ctx context.Context, installerPath string, handoff update.Handoff) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if !filepath.IsAbs(installerPath) || filepath.Ext(installerPath) != ".exe" {
 		return errors.New("invalid verified installer path")
 	}
@@ -91,9 +99,15 @@ func (l UpdateLauncher) Launch(ctx context.Context, installerPath string, handof
 	if err := copyFile(l.HelperPath, copyPath); err != nil {
 		return err
 	}
-	command := exec.CommandContext(ctx, copyPath, "-parent-pid", strconv.Itoa(os.Getpid()), "-installer", installerPath, "-restart", l.RestartPath, "-target-version", handoff.TargetVersion, "-token", handoff.Token, "-result", handoff.ResultPath)
+	// The helper must outlive FluxDM. In particular, InstallPreparedUpdate
+	// closes the application immediately after this call, which cancels the
+	// application's lifecycle context. CommandContext would then kill the
+	// helper before it could wait for FluxDM, invoke NSIS, and restart it.
+	// Validate the context before spawning, then intentionally use a detached
+	// command for this post-shutdown handoff.
+	command := exec.Command(copyPath, "-parent-pid", strconv.Itoa(os.Getpid()), "-installer", installerPath, "-restart", l.RestartPath, "-target-version", handoff.TargetVersion, "-token", handoff.Token, "-result", handoff.ResultPath)
 	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	return command.Start()
+	return startUpdateHelper(command)
 }
 
 func copyFile(source, destination string) error {
