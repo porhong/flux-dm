@@ -23,7 +23,10 @@ export function UpdateSettings() {
 
   useEffect(() => {
     void Promise.resolve().then(refresh)
-    Events.On("update:changed", (value: unknown) => { if (isUpdateStatus(value)) setStatus(value) })
+    Events.On("update:changed", (value: unknown) => {
+      const status = eventData(value)
+      if (isUpdateStatus(status)) setStatus(status)
+    })
     return () => Events.Off("update:changed")
   }, [refresh])
 
@@ -32,8 +35,8 @@ export function UpdateSettings() {
     setMessage("")
     try {
       setStatus(await operation())
-    } catch {
-      setMessage("The update operation could not be completed. Check your connection and try again.")
+    } catch (cause) {
+      setMessage(updateErrorMessage(cause))
     } finally {
       setActiveAction(null)
     }
@@ -67,6 +70,16 @@ export function UpdateSettings() {
       {(message || status.lastError) && <p className="text-xs text-red-300" role="alert">{message || status.lastError}</p>}
     </div>}
   </section>
+}
+
+function eventData(payload: unknown): unknown {
+  return typeof payload === "object" && payload !== null && "data" in payload ? payload.data : payload
+}
+
+function updateErrorMessage(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message : typeof cause === "string" ? cause : typeof cause === "object" && cause !== null && "message" in cause && typeof cause.message === "string" ? cause.message : ""
+  if (message) return message.replace(/^(?:invalid_input|unavailable|internal):\s*/, "")
+  return "The update operation could not be completed. Check your connection and try again."
 }
 
 function UpdateDownloadProgress({ status }: { status: UpdateStatus }) {

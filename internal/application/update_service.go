@@ -42,15 +42,24 @@ func (s *UpdateService) SavePreferences(ctx context.Context, input UpdatePrefere
 		return UpdateDTO{}, NewError(ErrInvalidInput, "Choose a supported update channel.", nil)
 	}
 	value, err := s.manager.SavePreferences(ctx, update.Preferences{Channel: input.Channel, AutoDownload: input.AutoDownload})
-	return updateDTO(value), err
+	if err != nil {
+		return updateDTO(value), NewError(ErrInternal, "Could not save update preferences.", err)
+	}
+	return updateDTO(value), nil
 }
 func (s *UpdateService) Check(ctx context.Context) (UpdateDTO, error) {
 	value, err := s.manager.Check(ctx, false)
-	return updateDTO(value), err
+	if err != nil {
+		return updateDTO(value), NewError(ErrInternal, "Could not check for application updates. Check your connection and try again.", err)
+	}
+	return updateDTO(value), nil
 }
 func (s *UpdateService) Download(ctx context.Context) (UpdateDTO, error) {
 	value, err := s.manager.DownloadAvailable(ctx)
-	return updateDTO(value), err
+	if err != nil {
+		return updateDTO(value), NewError(ErrInternal, "Could not download and verify the update. Check your connection and try again.", err)
+	}
+	return updateDTO(value), nil
 }
 func (s *UpdateService) Install(ctx context.Context, confirmPreview bool) error {
 	return s.manager.Install(ctx, confirmPreview)

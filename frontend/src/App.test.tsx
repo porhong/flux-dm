@@ -354,6 +354,24 @@ describe("App", () => {
 		expect(await screen.findByText("FluxDM 1.1.0 is available")).toBeInTheDocument()
 	})
 
+	it("shows the backend update error instead of replacing it with a connection-only message", async () => {
+		const user = userEvent.setup()
+		checkForUpdatesMock.mockRejectedValueOnce(new Error("internal: Could not check for application updates. Check your connection and try again."))
+		render(<App />)
+		await user.click(screen.getByRole("button", { name: "Settings" }))
+		await user.click(await screen.findByRole("button", { name: "Check now" }))
+		expect(await screen.findByText("Could not check for application updates. Check your connection and try again.")).toHaveAttribute("role", "alert")
+	})
+
+	it("accepts Wails v3 update event envelopes", async () => {
+		render(<App />)
+		await userEvent.setup().click(screen.getByRole("button", { name: "Settings" }))
+		const dispatch = (window as Window & { _wails?: { dispatchWailsEvent?: (event: { name: string; data: unknown }) => void } })._wails?.dispatchWailsEvent
+		if (!dispatch) throw new Error("Wails event dispatcher is unavailable")
+		dispatch({ name: "update:changed", data: updateStatusFixture({ phase: "error", lastError: "The update manifest could not be verified." }) })
+		expect(await screen.findByRole("alert")).toHaveTextContent("The update manifest could not be verified.")
+	})
+
 	it("shows update download progress and blocks conflicting update actions", async () => {
 		const user = userEvent.setup()
 		getUpdateStatusMock.mockResolvedValue(updateStatusFixture({
