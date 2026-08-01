@@ -50,6 +50,13 @@ try{
   $installer=Get-ChildItem build\bin\FluxDM-amd64-installer.exe -ErrorAction Stop
   $artifacts=@($app,$nativeHost,$updateLauncher,$installer.FullName);if($Sign){& "$PSScriptRoot\verify-release.ps1" -Path $artifacts -SignToolPath $SignToolPath}
   if($SevenZipPath){& "$PSScriptRoot\verify-installer-payload.ps1" -InstallerPath $installer.FullName -SevenZipPath $SevenZipPath -AppPath $app -NativeHostPath $nativeHost -UpdateLauncherPath $updateLauncher -ExtensionPath (Join-Path $root 'browser-extension') -Version $productVersion -RequireSignatures:$Sign}
-  & "$PSScriptRoot\stage-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $productVersion -InstallerPath $installer.FullName -ExtensionPackagePath $extensionPackage -OutputDirectory $ReleaseOutputDirectory -Signed:$Sign
+  $portableLDFlags="$buildLDFlags -X github.com/fluxdm/fluxdm/internal/application.PortableMode=true"
+  $env:FLUXDM_BUILD_LDFLAGS="$portableLDFlags -H windowsgui"
+  wails3 build;if($LASTEXITCODE){throw 'Portable Wails v3 build failed'}
+  $portableApp=Join-Path $root 'build\bin\FluxDM-portable.exe'
+  Move-Item -LiteralPath $app -Destination $portableApp -Force
+  & "$PSScriptRoot\verify-version-metadata.ps1" -Path $portableApp -Version $productVersion
+  if($Sign){& "$PSScriptRoot\sign-release.ps1" -Path @($portableApp) -CertificateThumbprint $CertificateThumbprint -SignToolPath $signToolCommand -TimestampUrl $TimestampUrl -AllowUntimestampedTestSignature:$AllowUntimestampedTestSignature;& "$PSScriptRoot\verify-release.ps1" -Path @($portableApp) -SignToolPath $SignToolPath}
+  & "$PSScriptRoot\stage-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $productVersion -InstallerPath $installer.FullName -PortablePath $portableApp -ExtensionPackagePath $extensionPackage -OutputDirectory $ReleaseOutputDirectory -Signed:$Sign
   Write-Host "Release assets created in $ReleaseOutputDirectory"
 }finally{Pop-Location}

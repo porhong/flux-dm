@@ -1,6 +1,6 @@
 # FluxDM
 
-FluxDM is an original Windows download manager built with Wails, Go, React, and TypeScript. The repository implements **Milestones 0–11**, including the Windows installer and release-engineering workflow.
+FluxDM is an original Windows download manager built with Wails, Go, React, and TypeScript. The repository implements **Milestones 0–11**, including portable Windows release candidates and a signed-installer production workflow.
 
 ## Foundation
 
@@ -55,9 +55,9 @@ The SQLite database and structured log are stored below the current user's confi
 
 ## Browser extension
 
-An installed release registers the native host automatically for Chrome, Edge, and Brave. Open **FluxDM Browser Extension Setup** from the Windows Start menu, enable Developer mode at `chrome://extensions`, `edge://extensions`, or `brave://extensions`, choose **Load unpacked**, and select `C:\Program Files\FluxDM\FluxDM\browser-extension`. Open the extension options and choose **Test connection**. Each release additionally includes `FluxDM-X.Y.Z-browser-extension.zip` for official browser-store submission or portable loading: extract it before using **Load unpacked**, because Chromium browsers do not import a local ZIP directly.
+Browser integration requires the installed FluxDM application, which registers the native host. The standalone portable EXE does not include browser-handoff support. Each release publishes a separate browser-extension ZIP for store submission or unpacked loading.
 
-For a source-tree development build, run `scripts\install-browser-integration.ps1` first and load this repository's `browser-extension` directory.
+Each release additionally includes `FluxDM-X.Y.Z-browser-extension.zip` for official browser-store submission or portable loading: extract it before using **Load unpacked**, because Chromium browsers do not import a local ZIP directly. For a source-tree development build, run `scripts\install-browser-integration.ps1` first and load this repository's `browser-extension` directory.
 
 The isolated real-browser smoke harness temporarily registers the native host under the current user, launches FluxDM with temporary application/user data, exercises connection, direct handoff, and automatic interception, then restores the registry and removes all test state:
 
@@ -98,18 +98,18 @@ Use `scripts\verify-installed-layout.ps1` to validate installed files, exact nat
 
 ## Releases
 
-Download FluxDM from the repository's [GitHub Releases](../../releases) page. Install the installer first: it installs the desktop application, native host, and shortcuts. The matching browser-extension ZIP is provided for official browser-store submission or portable **Load unpacked** installation after extraction; standalone executables are intentionally not published.
+Download FluxDM from the repository's [GitHub Releases](../../releases) page. Every release includes a standalone portable EXE; save it in a user-writable folder and run it. Settings, history, and logs are kept in its adjacent `data` folder. Portable builds intentionally do not run the installer-oriented automatic updater: replace the EXE with a newer verified portable EXE.
 
-For a release `X.Y.Z`, download `FluxDM-X.Y.Z-windows-amd64-installer.exe` and either its adjacent `.sha256` file or `SHA256SUMS.txt`. Verify it in PowerShell before installing:
+For an RC `X.Y.Z-rc.N`, download `FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe` and either its adjacent `.sha256` file or `SHA256SUMS.txt`. Verify it in PowerShell before running:
 
 ```powershell
-Get-FileHash .\FluxDM-X.Y.Z-windows-amd64-installer.exe -Algorithm SHA256
+Get-FileHash .\FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe -Algorithm SHA256
 Get-Content .\SHA256SUMS.txt
 ```
 
-The reported hash must match the entry for the installer. `release-manifest.json` is the corresponding machine-readable asset manifest.
+The reported hash must match the portable EXE entry. `release-manifest.json` is the corresponding machine-readable asset manifest.
 
-Until Authenticode signing is available, testers can use an **unsigned release candidate**. Update and merge the intended `X.Y.Z` product version, then push a new `vX.Y.Z-rc.N` tag (for example, `v1.0.0-rc.1`). This creates a clearly labelled GitHub prerelease from a GitHub-hosted runner with the versioned installer and SHA-256 files, but it does not use signing secrets or a certificate. Verify the checksum before installation; Windows may display a SmartScreen or unknown-publisher warning. Release candidates are not production releases and must not be announced as trusted/signed downloads.
+Release candidates publish an **unsigned portable EXE**. Update and merge the intended `X.Y.Z` product version, then push a new `vX.Y.Z-rc.N` tag (for example, `v1.0.0-rc.1`). This creates a clearly labelled GitHub prerelease from a GitHub-hosted runner with the versioned portable EXE, browser-extension ZIP, and SHA-256 files, but it does not use signing secrets or a certificate. Verify the checksum before running; Windows may still display a SmartScreen or publisher warning. Release candidates are not production releases and must not be announced as trusted/signed downloads.
 
 Production releases are created by pushing the matching protected `vX.Y.Z` tag. The signed workflow waits for approval of the protected `release` environment, then runs on the dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. That runner must have Go, Node.js, Wails, MinGW/GCC, NSIS, Windows SDK `signtool`, 7-Zip, and access to the hardware- or OS-backed Authenticode certificate. Its certificate thumbprint and RFC 3161 timestamp URL are protected environment configuration; no PFX or private key is stored in GitHub or this repository.
 

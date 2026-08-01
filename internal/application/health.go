@@ -17,6 +17,13 @@ const Version = "1.0.0"
 // that Windows file-version metadata cannot represent.
 var ReleaseVersion = Version
 
+// PortableMode is set to "true" by portable release builds. It keeps the
+// executable, its data, and its browser-integration manifest together while
+// development and installed builds retain the standard Windows config path.
+var PortableMode = "false"
+
+func IsPortableBuild() bool { return strings.EqualFold(PortableMode, "true") }
+
 // Update public keys are injected at build time. Keeping only public keys in
 // the binary permits offline verification without shipping signing secrets.
 var StableUpdatePublicKeyBase64 string
@@ -39,11 +46,25 @@ type Paths struct {
 }
 
 func DefaultPaths() (Paths, error) {
+	if IsPortableBuild() {
+		executable, err := os.Executable()
+		if err != nil {
+			return Paths{}, err
+		}
+		return portablePaths(executable)
+	}
 	root, err := os.UserConfigDir()
 	if err != nil {
 		return Paths{}, err
 	}
 	return Paths{DataDir: filepath.Join(root, "FluxDM")}, nil
+}
+
+func portablePaths(executable string) (Paths, error) {
+	if strings.TrimSpace(executable) == "" || !filepath.IsAbs(executable) {
+		return Paths{}, errors.New("portable executable path is required")
+	}
+	return Paths{DataDir: filepath.Join(filepath.Dir(executable), "data")}, nil
 }
 
 // DefaultDownloadDirectory returns the user's standard Downloads directory,

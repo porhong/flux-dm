@@ -18,7 +18,7 @@ export function UpdateSettings() {
   const [activeAction, setActiveAction] = useState<UpdateAction>(null)
   const refresh = useCallback(async () => {
     try { setStatus(await getUpdateStatus()); setMessage("") }
-    catch { setMessage("Updates are unavailable in this development or unsigned build.") }
+    catch (cause) { setMessage(updateErrorMessage(cause)) }
   }, [])
 
   useEffect(() => {

@@ -32,6 +32,7 @@ try {
   Assert-Throws { & "$PSScriptRoot\validate-rc-release-version.ps1" -Tag 'v1.2.4-rc.1' -WailsConfig $wailsConfig } 'Release-candidate product-version mismatches must be rejected.'
 
   $installer = Join-Path $temporaryRoot 'installer.exe'
+  $portableApp = Join-Path $temporaryRoot 'FluxDM.exe'
   $extensionSource = Join-Path $temporaryRoot 'browser-extension'
   New-Item -ItemType Directory -Path (Join-Path $extensionSource 'native-host'),(Join-Path $extensionSource 'icons') -Force | Out-Null
   $repositoryVersion = & "$PSScriptRoot\get-product-version.ps1"
@@ -55,26 +56,33 @@ try {
   } finally { $zip.Dispose() }
   $privateSigningSentinel = 'do-not-publish-private-signing-data'
   [IO.File]::WriteAllText($installer, $privateSigningSentinel)
+  [IO.File]::WriteAllText($portableApp, 'portable-app')
 	$keyBytes = New-Object byte[] 32
 	$keyGenerator = [Security.Cryptography.RandomNumberGenerator]::Create()
 	try { $keyGenerator.GetBytes($keyBytes) } finally { $keyGenerator.Dispose() }
 	$updateSigningKey = [Convert]::ToBase64String($keyBytes)
   $output = Join-Path $temporaryRoot 'release'
-  $staged = & "$PSScriptRoot\stage-release-assets.ps1" -Version $repositoryVersion -InstallerPath $installer -ExtensionPackagePath $extensionPackage -OutputDirectory $output -Signed -UpdateManifestPrivateKey $updateSigningKey | ConvertFrom-Json
+  $staged = & "$PSScriptRoot\stage-release-assets.ps1" -Version $repositoryVersion -InstallerPath $installer -PortablePath $portableApp -ExtensionPackagePath $extensionPackage -OutputDirectory $output -Signed -UpdateManifestPrivateKey $updateSigningKey | ConvertFrom-Json
   $installerName = "FluxDM-$repositoryVersion-windows-amd64-installer.exe"
+  $portableName = "FluxDM-$repositoryVersion-windows-amd64-portable.exe"
   $extensionName = "FluxDM-$repositoryVersion-browser-extension.zip"
   Assert-Equal (Split-Path -Leaf $staged.installer) $installerName 'Installer asset name is incorrect.'
   Assert-Equal (Split-Path -Leaf $staged.checksum) "$installerName.sha256" 'Checksum asset name is incorrect.'
+  Assert-Equal (Split-Path -Leaf $staged.portable) $portableName 'Portable asset name is incorrect.'
+  Assert-Equal (Split-Path -Leaf $staged.portableChecksum) "$portableName.sha256" 'Portable checksum asset name is incorrect.'
   Assert-Equal (Split-Path -Leaf $staged.extension) $extensionName 'Browser extension asset name is incorrect.'
   Assert-Equal (Split-Path -Leaf $staged.extensionChecksum) "$extensionName.sha256" 'Browser extension checksum asset name is incorrect.'
   Assert-True (Test-Path -LiteralPath $staged.checksums) 'SHA256SUMS.txt was not created.'
   $sum = Get-Content -Raw -Encoding ascii -LiteralPath $staged.checksum
   Assert-True ($sum -match [regex]::Escape("  $installerName")) 'Checksum file does not identify the versioned installer.'
+  $portableSum = Get-Content -Raw -Encoding ascii -LiteralPath $staged.portableChecksum
+  Assert-True ($portableSum -match [regex]::Escape("  $portableName")) 'Checksum file does not identify the versioned portable executable.'
   $extensionSum = Get-Content -Raw -Encoding ascii -LiteralPath $staged.extensionChecksum
   Assert-True ($extensionSum -match [regex]::Escape("  $extensionName")) 'Browser extension checksum file does not identify the versioned extension.'
   $manifest = Get-Content -Raw -Encoding utf8 -LiteralPath $staged.manifest
   Assert-True ($manifest -notmatch [regex]::Escape($privateSigningSentinel)) 'Release manifest must not contain private signing data.'
   Assert-True ($manifest -match [regex]::Escape($installerName)) 'Release manifest does not identify the versioned installer.'
+  Assert-True ($manifest -match [regex]::Escape($portableName)) 'Release manifest does not identify the versioned portable executable.'
   Assert-True ($manifest -match [regex]::Escape($extensionName)) 'Release manifest does not identify the versioned browser extension.'
 	Assert-True (Test-Path -LiteralPath $staged.updateManifest) 'Signed update manifest was not created.'
 	Assert-True (Test-Path -LiteralPath $staged.updateSignature) 'Signed update manifest signature was not created.'
@@ -84,7 +92,7 @@ try {
 
   $rcOutput = Join-Path $temporaryRoot 'release-candidate'
   $rcReleaseVersion = "$repositoryVersion-rc.4"
-  $rcStaged = & "$PSScriptRoot\stage-release-assets.ps1" -Version $rcReleaseVersion -ProductVersion $repositoryVersion -InstallerPath $installer -ExtensionPackagePath $extensionPackage -OutputDirectory $rcOutput -UpdateManifestPrivateKey $updateSigningKey | ConvertFrom-Json
+  $rcStaged = & "$PSScriptRoot\stage-release-assets.ps1" -Version $rcReleaseVersion -ProductVersion $repositoryVersion -InstallerPath $installer -PortablePath $portableApp -ExtensionPackagePath $extensionPackage -OutputDirectory $rcOutput -UpdateManifestPrivateKey $updateSigningKey | ConvertFrom-Json
   Assert-Equal (Split-Path -Leaf $rcStaged.installer) "FluxDM-$rcReleaseVersion-windows-amd64-installer.exe" 'Release-candidate installer asset name is incorrect.'
   $rcManifest = Get-Content -Raw -Encoding utf8 -LiteralPath $rcStaged.manifest | ConvertFrom-Json
   Assert-Equal $rcManifest.version $rcReleaseVersion 'Release-candidate manifest must identify the public release version.'
@@ -92,31 +100,47 @@ try {
   Assert-True (-not $rcManifest.signed) 'Unsigned release-candidate manifest must report signed=false.'
 	$rcUpdateManifest = Get-Content -Raw -Encoding utf8 -LiteralPath $rcStaged.updateManifest | ConvertFrom-Json
 	Assert-Equal $rcUpdateManifest.channel 'preview' 'Release-candidate update manifest must identify the preview channel.'
-  Assert-Throws { & "$PSScriptRoot\stage-release-assets.ps1" -Version '1.2.4-rc.1' -ProductVersion '1.2.3' -InstallerPath $installer -ExtensionPackagePath $extensionPackage -OutputDirectory (Join-Path $temporaryRoot 'invalid-release-candidate') } 'Release-candidate asset version/product mismatches must be rejected.'
+  Assert-Throws { & "$PSScriptRoot\stage-release-assets.ps1" -Version '1.2.4-rc.1' -ProductVersion '1.2.3' -InstallerPath $installer -PortablePath $portableApp -ExtensionPackagePath $extensionPackage -OutputDirectory (Join-Path $temporaryRoot 'invalid-release-candidate') } 'Release-candidate asset version/product mismatches must be rejected.'
+  Assert-Throws { & "$PSScriptRoot\stage-release-assets.ps1" -Version $repositoryVersion -InstallerPath $installer -PortablePath $extensionPackage -ExtensionPackagePath $extensionPackage -OutputDirectory (Join-Path $temporaryRoot 'invalid-portable-input') } 'Release staging must reject a non-executable portable input.'
+
+  $portableOutput = Join-Path $temporaryRoot 'portable-release-candidate'
+  $portableStaged = & "$PSScriptRoot\stage-portable-release-assets.ps1" -Version $rcReleaseVersion -ProductVersion $repositoryVersion -PortablePath $portableApp -ExtensionPackagePath $extensionPackage -OutputDirectory $portableOutput | ConvertFrom-Json
+  Assert-Equal (Split-Path -Leaf $portableStaged.portable) "FluxDM-$rcReleaseVersion-windows-amd64-portable.exe" 'Portable release asset name is incorrect.'
+  $portableManifest = Get-Content -Raw -Encoding utf8 -LiteralPath $portableStaged.manifest | ConvertFrom-Json
+  Assert-True $portableManifest.portable 'Portable release manifest must report portable=true.'
+  Assert-True (-not $portableManifest.signed) 'Portable release manifest must report signed=false.'
+  Assert-True (($portableManifest.artifacts | Where-Object kind -eq 'portable').file -eq "FluxDM-$rcReleaseVersion-windows-amd64-portable.exe") 'Portable release manifest must identify the portable artifact.'
+  Assert-Throws { & "$PSScriptRoot\stage-portable-release-assets.ps1" -Version '1.2.4-rc.1' -ProductVersion '1.2.3' -PortablePath $portableApp -ExtensionPackagePath $extensionPackage -OutputDirectory (Join-Path $temporaryRoot 'invalid-portable-release-candidate') } 'Portable release version/product mismatches must be rejected.'
+  Assert-Throws { & "$PSScriptRoot\stage-portable-release-assets.ps1" -Version $rcReleaseVersion -ProductVersion $repositoryVersion -PortablePath $extensionPackage -ExtensionPackagePath $extensionPackage -OutputDirectory (Join-Path $temporaryRoot 'invalid-portable-executable') } 'Portable release staging must reject a non-executable portable input.'
 
   $workflow = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root '.github\workflows\release.yml')
-  foreach ($required in @('self-hosted', 'windows', 'fluxdm-signing', 'environment: release', 'fail_on_unmatched_files: true', 'generate_release_notes: true', 'FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe', 'FluxDM-${{ steps.version.outputs.version }}-browser-extension.zip', 'SHA256SUMS.txt', 'release-manifest.json', 'update-manifest.json', 'update-manifest.sig', 'FLUXDM_UPDATE_STABLE_PRIVATE_KEY')) {
+  foreach ($required in @('self-hosted', 'windows', 'fluxdm-signing', 'environment: release', 'fail_on_unmatched_files: true', 'generate_release_notes: true', 'FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe', 'FluxDM-${{ steps.version.outputs.version }}-windows-amd64-portable.exe', 'FluxDM-${{ steps.version.outputs.version }}-browser-extension.zip', 'SHA256SUMS.txt', 'release-manifest.json', 'update-manifest.json', 'update-manifest.sig', 'FLUXDM_UPDATE_STABLE_PRIVATE_KEY')) {
     Assert-True ($workflow.Contains($required)) "Release workflow is missing required contract: $required"
   }
 
   $rcWorkflow = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root '.github\workflows\rc-release.yml')
-  foreach ($required in @("'v*-rc.*'", 'runs-on: windows-2022', 'prerelease: true', 'not Authenticode-signed', 'fail_on_unmatched_files: true', 'FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-installer.exe', 'FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip', 'SHA256SUMS.txt', 'release-manifest.json', 'update-manifest.json', 'update-manifest.sig', 'FLUXDM_UPDATE_PREVIEW_PRIVATE_KEY')) {
+  foreach ($required in @("'v*-rc.*'", 'runs-on: windows-2022', 'prerelease: true', 'Portable unsigned release candidate', 'fail_on_unmatched_files: true', 'build-portable-release.ps1', 'FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable.exe', 'FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip', 'SHA256SUMS.txt', 'release-manifest.json')) {
     Assert-True ($rcWorkflow.Contains($required)) "Release-candidate workflow is missing required contract: $required"
   }
-  foreach ($forbidden in @('FLUXDM_CERT_THUMBPRINT', 'FLUXDM_TIMESTAMP_URL', 'environment: release', 'fluxdm-signing')) {
+  foreach ($forbidden in @('FLUXDM_CERT_THUMBPRINT', 'FLUXDM_TIMESTAMP_URL', 'environment: release', 'fluxdm-signing', 'nsis.install', 'update-manifest.json', 'update-manifest.sig', 'FLUXDM_UPDATE_PREVIEW_PRIVATE_KEY')) {
     Assert-True (-not $rcWorkflow.Contains($forbidden)) "Release-candidate workflow must not contain production signing configuration: $forbidden"
   }
 
   $ciWorkflow = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root '.github\workflows\ci.yml')
-  foreach ($workflowDefinition in @($ciWorkflow, $rcWorkflow)) {
-    Assert-True ($workflowDefinition.Contains('choco install nsis.install --yes')) 'Windows packaging workflow must install NSIS when the compiler is unavailable.'
-    Assert-True (-not $workflowDefinition.Contains('nsis.install --version=')) 'Windows packaging workflow must not pin an NSIS version that can conflict with the hosted runner image.'
-  }
+  Assert-True ($ciWorkflow.Contains('choco install nsis.install --yes')) 'Installer CI workflow must install NSIS when the compiler is unavailable.'
+  Assert-True (-not $ciWorkflow.Contains('nsis.install --version=')) 'Installer CI workflow must not pin an NSIS version that can conflict with the hosted runner image.'
 
   $buildScript = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $PSScriptRoot 'build-release.ps1')
   Assert-True ($buildScript.Contains('$productVersion=&')) 'Release build must keep the product version separate from the release-version parameter.'
   Assert-True (-not $buildScript.Contains('$releaseVersion=&')) 'Release build must not overwrite the release-version parameter with the product version.'
 	Assert-True ($buildScript.Contains('FluxDM.UpdateLauncher.exe')) 'Release build must package the update launcher.'
+  foreach ($required in @('PortableMode=true', 'FluxDM-portable.exe', 'Portable Wails v3 build failed')) {
+    Assert-True ($buildScript.Contains($required)) "Signed release build is missing portable executable contract: $required"
+  }
+  $portableBuildScript = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $PSScriptRoot 'build-portable-release.ps1')
+  foreach ($required in @('PortableMode=true', 'stage-portable-release-assets.ps1', 'verify-version-metadata.ps1')) {
+    Assert-True ($portableBuildScript.Contains($required)) "Portable release build is missing required contract: $required"
+  }
   $payloadVerifier = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $PSScriptRoot 'verify-installer-payload.ps1')
   Assert-True (-not $payloadVerifier.Contains("'uninstall.exe',")) 'Payload verification must not expect uninstall.exe to be archive-extractable.'
   Assert-True ($payloadVerifier.Contains('wails.writeUninstaller')) 'Payload verification must verify that NSIS creates the uninstaller during installation.'

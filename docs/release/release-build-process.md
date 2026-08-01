@@ -1,8 +1,8 @@
 # Production release build process
 
-This runbook is the authoritative procedure for producing and publishing a FluxDM Windows release. It covers both the unsigned testing channel and the signed production NSIS installer build.
+This runbook is the authoritative procedure for producing and publishing a FluxDM Windows release. It covers the portable unsigned testing channel and the signed production NSIS installer build.
 
-The signed installer is the only executable release artifact. Do not publish `FluxDM.exe` or `FluxDM.NativeHost.exe` separately: installation is required to register browser integration and create shortcuts. The matching browser-extension ZIP is published separately for store submission or portable unpacked installation.
+Every release publishes a standalone portable EXE and a browser-extension ZIP. Stable releases additionally publish the signed NSIS installer. The portable EXE stores its data beside itself and deliberately excludes the native host, so browser handoff requires the installed application.
 
 ## Release contract
 
@@ -12,8 +12,8 @@ The signed installer is the only executable release artifact. Do not publish `Fl
 | Product version | `wails.json` `info.productVersion` must be exactly `X.Y.Z`. |
 | Production publishing workflow | `.github/workflows/release.yml`, triggered only by pushed `vX.Y.Z` tags. |
 | Signing boundary | The approved `release` GitHub Environment and the `self-hosted`, `windows`, `fluxdm-signing` runner. |
-| Published assets | Versioned installer and browser-extension ZIP, each with an adjacent `.sha256`, plus `SHA256SUMS.txt`, `release-manifest.json`, signed `update-manifest.json`, and `update-manifest.sig`. |
-| Release-candidate workflow | `.github/workflows/rc-release.yml`, triggered by `vX.Y.Z-rc.N` tags and always published as a prerelease. |
+| Published assets | Versioned installer, portable EXE, and browser-extension ZIP, each with an adjacent `.sha256`, plus `SHA256SUMS.txt`, `release-manifest.json`, signed `update-manifest.json`, and `update-manifest.sig`. |
+| Release-candidate workflow | `.github/workflows/rc-release.yml`, triggered by `vX.Y.Z-rc.N` tags and always published as a portable prerelease. |
 | Unsigned artifacts | May be published only through the explicit release-candidate channel; they are never production releases. |
 
 The production workflow validates the tag strictly before it builds. A tag such as `v1.2`, `v01.2.3`, `v1.2.3-rc.1`, or a tag that does not match `wails.json` is rejected.
@@ -24,20 +24,20 @@ Use the channel that matches the artifact's trust level. A green workflow is not
 
 | Topic | Unsigned release candidate | Signed production release |
 | --- | --- | --- |
-| Purpose | Tester feedback and installation validation before trusted signing is available. | Public, trusted distribution after approval and clean-machine acceptance. |
+| Purpose | Tester feedback without an installer or administrator requirement. | Public, trusted distribution after approval and clean-machine acceptance. |
 | Tag | `vX.Y.Z-rc.N`, where `N` is a new positive integer. | `vX.Y.Z`, matching the product version exactly. |
-| Workflow | **unsigned Windows release candidate** (`rc-release.yml`). | **signed Windows release** (`release.yml`). |
+| Workflow | **portable Windows release candidate** (`rc-release.yml`). | **signed Windows release** (`release.yml`). |
 | Runner | GitHub-hosted `windows-2022`. | Dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. |
-| Signing | Never Authenticode-signed; a preview-only metadata key signs its update manifest. | Authenticode signing with SHA-256 and an RFC 3161 timestamp, approved through the protected `release` environment. |
+| Signing | Never Authenticode-signed; automatic updates are disabled and testers replace the portable EXE manually. | Authenticode signing with SHA-256 and an RFC 3161 timestamp, approved through the protected `release` environment. |
 | GitHub release type | Prerelease. | Normal release. |
-| Manifest | `version: X.Y.Z-rc.N`, `productVersion: X.Y.Z`, `signed: false`. | `version: X.Y.Z`, `productVersion: X.Y.Z`, `signed: true`. |
+| Manifest | `version: X.Y.Z-rc.N`, `productVersion: X.Y.Z`, `portable: true`, `signed: false`. | `version: X.Y.Z`, `productVersion: X.Y.Z`, `signed: true`. |
 | Tester/user message | Windows SmartScreen or an unknown-publisher warning is expected. Do not call it trusted or production-ready. | Verify the checksum and valid Authenticode signature before announcement. |
 
-Both channels publish eight custom assets: a versioned installer and browser-extension ZIP, each with an adjacent `.sha256` file, `SHA256SUMS.txt`, `release-manifest.json`, `update-manifest.json`, and `update-manifest.sig`. GitHub also supplies source archives separately. Missing either installer, checksum, or signed update metadata file is a failed release, even if a GitHub Release page was created.
+The portable RC channel publishes six custom assets: a versioned portable EXE and browser-extension ZIP, each with an adjacent `.sha256`, plus `SHA256SUMS.txt` and `release-manifest.json`. Stable releases additionally retain the signed installer and installer update metadata. GitHub also supplies source archives separately.
 
 ## Unsigned release candidates while signing is unavailable
 
-Use this channel only to give testers an installer before a trusted signing certificate or signing service is available. It is deliberately separate from the protected production path.
+Use this channel only to give testers a portable build before a trusted signing certificate or signing service is available. It is deliberately separate from the protected production path.
 
 ### 1. Prepare the exact candidate commit
 
@@ -81,47 +81,47 @@ git ls-remote --tags origin refs/tags/vX.Y.Z-rc.N
 
 ### 3. Review the workflow and published prerelease
 
-The **unsigned Windows release candidate** workflow runs on GitHub-hosted `windows-2022`, installs the packaging tools, executes the complete validation suite, builds the installer, validates its payload hashes, and publishes a GitHub **prerelease**.
+The **portable Windows release candidate** workflow runs on GitHub-hosted `windows-2022`, executes the complete validation suite, builds a portable-mode desktop EXE, packages the browser-extension ZIP, and publishes a GitHub **prerelease**.
 
 Before sharing it, verify all of the following in the workflow and GitHub Release page:
 
 1. The workflow ref is exactly `vX.Y.Z-rc.N` and its commit SHA is the commit recorded above.
-2. The workflow's staging output names the installer `FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe`.
-3. The GitHub prerelease contains all eight custom assets:
+2. The workflow's staging output names the portable executable `FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe`.
+3. The GitHub prerelease contains all six custom assets:
 
    ```text
-   FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe
-   FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe.sha256
+   FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe
+   FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe.sha256
    FluxDM-X.Y.Z-rc.N-browser-extension.zip
    FluxDM-X.Y.Z-rc.N-browser-extension.zip.sha256
    SHA256SUMS.txt
    release-manifest.json
-   update-manifest.json
-   update-manifest.sig
    ```
 
-4. `release-manifest.json` identifies the RC version, the numeric product version, `signed: false`, and both release artifacts.
-5. `SHA256SUMS.txt` identifies the RC installer and browser-extension ZIP filenames exactly.
+4. `release-manifest.json` identifies the RC version, numeric product version, `portable: true`, `signed: false`, and both release artifacts.
+5. `SHA256SUMS.txt` identifies the RC portable EXE and browser-extension ZIP filenames exactly.
 
-Share the installer, browser-extension ZIP, checksum files, and the explicit warning that the installer is unsigned. Testers must compare `Get-FileHash -Algorithm SHA256` output with `SHA256SUMS.txt` before running or extracting either artifact:
+Share the portable EXE, browser-extension ZIP, checksum files, and the explicit warning that the executable is unsigned. Testers must compare `Get-FileHash -Algorithm SHA256` output with `SHA256SUMS.txt` before running or extracting either artifact:
 
 ```powershell
-$installer = '.\FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe'
-Get-FileHash -Algorithm SHA256 -LiteralPath $installer
+$portable = '.\FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe'
+Get-FileHash -Algorithm SHA256 -LiteralPath $portable
 Get-FileHash -Algorithm SHA256 -LiteralPath .\FluxDM-X.Y.Z-rc.N-browser-extension.zip
 Get-Content .\SHA256SUMS.txt
 ```
 
-The public assets are named `FluxDM-X.Y.Z-rc.N-windows-amd64-installer.exe` and `FluxDM-X.Y.Z-rc.N-browser-extension.zip`. Its `release-manifest.json` records the release-candidate version, the packaged `X.Y.Z` product version, and `signed: false`. Windows SmartScreen or an unknown-publisher warning is expected for the installer; a checksum confirms the downloaded bytes but does **not** establish publisher identity. Do not present this as a production, trusted, or signed release.
+Save the portable EXE in a user-writable folder. The first run stores application data beside the executable in `data`; it does not create shortcuts, an uninstaller, a service, or a machine-wide registry entry. The standalone EXE does not include the native host required for browser handoff; use the signed installer for browser integration.
 
-This release-candidate workflow has no `release` environment, certificate thumbprint, timestamp endpoint, or self-hosted signing runner. It never publishes standalone executables. When signing becomes available, create a new final `vX.Y.Z` tag for the signed production workflow; do not promote or rename an unsigned release-candidate tag.
+The public assets are named `FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe` and `FluxDM-X.Y.Z-rc.N-browser-extension.zip`. Its `release-manifest.json` records the release-candidate version, packaged `X.Y.Z` product version, `portable: true`, and `signed: false`. Windows SmartScreen or an unknown-publisher warning may still occur for the portable executable; a checksum confirms the downloaded bytes but does **not** establish publisher identity. Do not present this as a production, trusted, or signed release.
+
+This release-candidate workflow has no `release` environment, certificate thumbprint, timestamp endpoint, update-signing key, or self-hosted signing runner. Portable builds do not use the installer updater; replace the verified portable EXE when testing a newer RC. When signing becomes available, create a new final `vX.Y.Z` tag for the signed production workflow; do not promote or rename an unsigned release-candidate tag.
 
 ### RC failure and recovery
 
 - If validation, packaging, or asset review fails, do not distribute the candidate. Mark the incomplete prerelease as draft or delete it according to the incident process.
 - If the source must change, merge the fix, rerun validation, and create `vX.Y.Z-rc.(N+1)` at the **new** commit. Re-running an old tag always builds the old source.
 - Never move, force-push, or reuse an RC tag. Preserve the failed workflow and release page as evidence.
-- If a workflow creates a prerelease with only checksums/manifest and no installer, treat it as incomplete. The workflows are configured to fail on unmatched upload files; investigate the staging and upload names before creating the next RC tag.
+- If a workflow creates a prerelease with only checksums/manifest and no portable EXE, treat it as incomplete. The workflow is configured to fail on unmatched upload files; investigate the staging and upload names before creating the next RC tag.
 
 ## One-time production setup
 
@@ -249,7 +249,7 @@ Do not create the final tag until the version metadata and source are final. Nev
    2. Runs Go formatting, vet, tests, race tests, module verification, and vulnerability scanning.
    3. Runs frontend dependency installation, lint, typecheck, tests, and audit.
    4. Checks browser-extension scripts and policy tests.
-   5. Builds the Wails desktop application, native host, browser-extension ZIP, and NSIS installer.
+   5. Builds the installer desktop application, native host, browser-extension ZIP, NSIS installer, and a separate portable-mode desktop EXE.
    6. Verifies Windows file version metadata against the validated version.
    7. Signs `FluxDM.exe` and `FluxDM.NativeHost.exe`, then rebuilds NSIS so the embedded uninstaller and final installer are signed and RFC 3161 timestamped.
    8. Verifies Authenticode/WinVerifyTrust signatures and extracts the NSIS payload with 7-Zip to compare hashes and signatures.
@@ -264,23 +264,28 @@ For version `X.Y.Z`, the workflow stages exactly these files in `build\release` 
 ```text
 FluxDM-X.Y.Z-windows-amd64-installer.exe
 FluxDM-X.Y.Z-windows-amd64-installer.exe.sha256
+FluxDM-X.Y.Z-windows-amd64-portable.exe
+FluxDM-X.Y.Z-windows-amd64-portable.exe.sha256
 FluxDM-X.Y.Z-browser-extension.zip
 FluxDM-X.Y.Z-browser-extension.zip.sha256
 SHA256SUMS.txt
 release-manifest.json
 ```
 
-The adjacent checksum files and `SHA256SUMS.txt` contain the SHA-256 values of the versioned installer and browser-extension ZIP. `release-manifest.json` identifies the version, whether the build was signed, both artifact filenames, SHA-256 values, and byte counts. It must not include certificate material, credentials, or private signing information.
+The adjacent checksum files and `SHA256SUMS.txt` contain the SHA-256 values of the versioned installer, portable EXE, and browser-extension ZIP. `release-manifest.json` identifies the version, whether the build was signed, all artifact filenames, SHA-256 values, and byte counts. It must not include certificate material, credentials, or private signing information.
 
 On a clean verification machine, download the installer and checksum file from the GitHub Release and run:
 
 ```powershell
 $installer = '.\FluxDM-X.Y.Z-windows-amd64-installer.exe'
+$portable = '.\FluxDM-X.Y.Z-windows-amd64-portable.exe'
 Get-FileHash -Algorithm SHA256 -LiteralPath $installer
+Get-FileHash -Algorithm SHA256 -LiteralPath $portable
 Get-FileHash -Algorithm SHA256 -LiteralPath .\FluxDM-X.Y.Z-browser-extension.zip
 Get-Content .\SHA256SUMS.txt
 Get-AuthenticodeSignature -LiteralPath $installer | Format-List Status, StatusMessage, SignerCertificate, TimeStamperCertificate
 signtool verify /pa /all $installer
+signtool verify /pa /all $portable
 ```
 
 The computed SHA-256 must match the entry in `SHA256SUMS.txt`, `Get-AuthenticodeSignature` must report `Valid`, and `signtool` must succeed. Do not treat an untrusted, expired, missing, or untimestamped signature as a successful release.
@@ -298,8 +303,8 @@ At minimum, cover interactive and silent installation, desktop startup, browser 
 After the workflow succeeds:
 
 1. Confirm the GitHub Release is non-draft, targets the expected tag, and has generated release notes.
-2. Confirm it exposes only the eight approved assets listed above.
-3. Perform the public download/hash/signature verification from a clean machine. The browser-extension ZIP is verified by hash; the installer is additionally verified by Authenticode signature.
+2. Confirm it exposes only the ten approved assets listed above.
+3. Perform the public download/hash/signature verification from a clean machine. The browser-extension ZIP is verified by hash; the installer and portable EXE are additionally verified by Authenticode signature.
 4. Link the workflow run, smoke-test evidence, checksums, and release notes in the release ticket.
 5. Announce the release only after those checks are complete.
 

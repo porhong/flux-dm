@@ -185,7 +185,9 @@ func (a *App) startup(ctx context.Context) {
 		a.browserBridge = bridge
 	}
 	a.schedules = application.NewSchedulerService(ctx, database.Scheduler(), a, organizationRepository)
-	if stableKey, previewKey, keyErr := application.UpdatePublicKeys(); keyErr != nil {
+	if application.IsPortableBuild() {
+		a.logger.Info("automatic updates disabled for portable build", nil)
+	} else if stableKey, previewKey, keyErr := application.UpdatePublicKeys(); keyErr != nil {
 		a.logger.Error("updates disabled: signing keys are not configured", map[string]any{"error": keyErr.Error()})
 	} else if executable, executableErr := os.Executable(); executableErr != nil {
 		a.logger.Error("updates disabled: executable path unavailable", map[string]any{"error": executableErr.Error()})
@@ -662,6 +664,9 @@ func (a *App) DefaultDownloadDirectory() (string, error) {
 
 func (a *App) GetUpdateStatus() (application.UpdateDTO, error) {
 	if a.updates == nil {
+		if application.IsPortableBuild() {
+			return application.UpdateDTO{}, application.NewError(application.ErrUnavailable, "Portable builds are updated by replacing the extracted FluxDM folder.", nil)
+		}
 		return application.UpdateDTO{}, application.NewError(application.ErrUnavailable, "Updates are not configured for this build.", nil)
 	}
 	return a.updates.Status(), nil

@@ -29,3 +29,31 @@ func TestDefaultDownloadDirectoryForHomeRejectsEmptyHome(t *testing.T) {
 		t.Fatal("expected empty home directory to be rejected")
 	}
 }
+
+func TestPortablePathsStoresDataBesideExecutable(t *testing.T) {
+	executable := filepath.Join(t.TempDir(), "FluxDM.exe")
+	paths, err := portablePaths(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if paths.DataDir != filepath.Join(filepath.Dir(executable), "data") {
+		t.Fatalf("data directory = %q", paths.DataDir)
+	}
+}
+
+func TestPortablePathsRejectsRelativeOrEmptyExecutable(t *testing.T) {
+	for _, executable := range []string{"", "FluxDM.exe"} {
+		if _, err := portablePaths(executable); err == nil {
+			t.Fatalf("portablePaths(%q) succeeded", executable)
+		}
+	}
+}
+
+func TestIsPortableBuild(t *testing.T) {
+	previous := PortableMode
+	t.Cleanup(func() { PortableMode = previous })
+	PortableMode = "TrUe"
+	if !IsPortableBuild() {
+		t.Fatal("portable build not detected")
+	}
+}

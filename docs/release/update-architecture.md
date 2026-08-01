@@ -2,6 +2,8 @@
 
 FluxDM checks the pinned `porhong/flux-dm` GitHub Releases endpoint after startup and then once every 24 hours while the desktop process is running, including when its window is hidden in the tray. Discovery data is untrusted: the application only accepts a release after verifying its detached Ed25519 `update-manifest.sig` before parsing update metadata.
 
+Portable builds intentionally do not initialize this installer updater. They are updated by downloading a verified newer portable EXE and replacing the previous executable after it exits; this avoids self-replacing an executable in use and does not execute any downloaded artifact.
+
 ## Trust and channels
 
 - **Stable** is the default. It accepts only non-prerelease releases signed with the compiled stable metadata public key, then verifies the installer SHA-256, byte count, and Windows Authenticode trust chain before enabling installation.
@@ -18,6 +20,6 @@ After the user chooses **Restart and install**, FluxDM copies its packaged launc
 
 ## Release setup and response
 
-Configure `FLUXDM_UPDATE_STABLE_PRIVATE_KEY` in the protected `release` environment, `FLUXDM_UPDATE_PREVIEW_PRIVATE_KEY` for the RC workflow, and the corresponding `FLUXDM_UPDATE_STABLE_PUBLIC_KEY` / `FLUXDM_UPDATE_PREVIEW_PUBLIC_KEY` GitHub variables. Private values are Base64 Ed25519 seeds or private keys and must never be logged, committed, or published.
+Configure `FLUXDM_UPDATE_STABLE_PRIVATE_KEY` in the protected `release` environment and inject the corresponding stable public key into the signed installer build. Portable RC builds do not receive update keys or publish updater metadata. Private values are Base64 Ed25519 seeds or private keys and must never be logged, committed, or published.
 
 If a key is suspected compromised, withdraw affected releases, rotate the relevant key pair, ship the new public key through an already trusted release, and issue a new immutable release tag. Do not move an existing tag or replace an existing release asset.
