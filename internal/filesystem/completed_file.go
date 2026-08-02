@@ -58,6 +58,21 @@ func (m *CompletedFileManager) Recycle(path string) error {
 	return m.shell.Recycle(path)
 }
 
+// Delete permanently removes a completed file after applying the same path
+// and regular-file checks used by the other completed-file actions. Unlike
+// Recycle, it does not depend on a Windows shell or a Recycle Bin being
+// available on the file's volume.
+func (m *CompletedFileManager) Delete(path string) error {
+	path, err := validateCompletedFile(path)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("delete completed file: %w", err)
+	}
+	return nil
+}
+
 func (m *CompletedFileManager) Rename(path, name string) (string, error) {
 	path, err := validateCompletedFile(path)
 	if err != nil {

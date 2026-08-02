@@ -17,6 +17,7 @@ type CompletedFileOperations interface {
 	Open(string) error
 	Reveal(string) error
 	Recycle(string) error
+	Delete(string) error
 	Rename(string, string) (string, error)
 	Move(string, string) (string, error)
 }
@@ -174,6 +175,38 @@ func (s *FileManagementService) RecycleAndRemoveHistory(ctx context.Context, ids
 		}
 		if deleteErr := s.repository.Delete(ctx, id); deleteErr != nil {
 			result.Failures = append(result.Failures, failure(id, repositoryError("remove history", deleteErr)))
+			continue
+		}
+		result.RemovedIDs = append(result.RemovedIDs, id)
+	}
+	return result, nil
+}
+
+// DeleteFilesAndRemoveHistory permanently deletes each completed file and
+// removes its history record. It is intentionally separate from Recycle so a
+// portable build can delete files on volumes without a Recycle Bin.
+func (s *FileManagementService) DeleteFilesAndRemoveHistory(ctx context.Context, ids []string) (CompletedFileOperationResult, error) {
+	ids, err := validateCompletedFileIDs(ids)
+	if err != nil {
+		return CompletedFileOperationResult{}, err
+	}
+	result := newCompletedFileOperationResult()
+	for _, id := range ids {
+		task, getErr := s.repository.Get(ctx, id)
+		if getErr != nil {
+			result.Failures = append(result.Failures, failure(id, repositoryError("delete", getErr)))
+			continue
+		}
+		if task.State != download.StateCompleted {
+			result.SkippedIDs = append(result.SkippedIDs, id)
+			continue
+		}
+		if deleteFileErr := s.files.Delete(task.DestinationPath); deleteFileErr != nil {
+			result.Failures = append(result.Failures, failure(id, fileOperationError("delete", deleteFileErr)))
+			continue
+		}
+		if deleteRecordErr := s.repository.Delete(ctx, id); deleteRecordErr != nil {
+			result.Failures = append(result.Failures, failure(id, repositoryError("remove history", deleteRecordErr)))
 			continue
 		}
 		result.RemovedIDs = append(result.RemovedIDs, id)

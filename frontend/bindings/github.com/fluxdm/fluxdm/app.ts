@@ -78,6 +78,17 @@ export function DeleteCategory(id: string): $CancellablePromise<void> {
 }
 
 /**
+ * DeleteCompletedDownloadFiles permanently deletes completed files and their
+ * history records. It does not require the Windows shell, so it also supports
+ * portable copies running from removable or nonstandard volumes.
+ */
+export function DeleteCompletedDownloadFiles(ids: string[]): $CancellablePromise<application$0.CompletedFileOperationResult> {
+    return $Call.ByID(2502612682, ids).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
+/**
  * DeleteDownloadedFile deletes a completed transfer's file and its history
  * record. It never runs or opens the completed file.
  */
@@ -137,7 +148,7 @@ export function GetUpdateStatus(): $CancellablePromise<application$0.UpdateDTO> 
  */
 export function HealthCheck(): $CancellablePromise<application$0.HealthStatus> {
     return $Call.ByID(1288635913).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
@@ -155,13 +166,13 @@ export function InstallPreparedUpdate(confirmPreview: boolean): $CancellableProm
 
 export function ListCategories(): $CancellablePromise<organization$0.Category[]> {
     return $Call.ByID(1403045529).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType5($result);
     });
 }
 
 export function ListDownloads(): $CancellablePromise<application$0.DownloadDTO[]> {
     return $Call.ByID(2520899730).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType6($result);
     });
 }
 
@@ -173,37 +184,37 @@ export function ListDownloads(): $CancellablePromise<application$0.DownloadDTO[]
  */
 export function ListPendingBrowserDownloads(): $CancellablePromise<application$0.DownloadRequestEvent[]> {
     return $Call.ByID(1921217425).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType8($result);
     });
 }
 
 export function ListQueues(): $CancellablePromise<organization$0.Queue[]> {
     return $Call.ByID(3431901717).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType10($result);
     });
 }
 
 export function ListScheduleHistory(limit: number): $CancellablePromise<scheduler$0.History[]> {
     return $Call.ByID(836291328, limit).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType12($result);
     });
 }
 
 export function ListSchedules(): $CancellablePromise<scheduler$0.Schedule[]> {
     return $Call.ByID(1403163153).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType14($result);
     });
 }
 
 export function ListSiteProfiles(): $CancellablePromise<siteprofile$0.Profile[]> {
     return $Call.ByID(1039074356).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType16($result);
     });
 }
 
 export function MoveCompletedDownloadFiles(input: application$0.MoveCompletedDownloadsInput): $CancellablePromise<application$0.CompletedFileOperationResult> {
     return $Call.ByID(1676485428, input).then(($result: any) => {
-        return $$createType16($result);
+        return $$createType2($result);
     });
 }
 
@@ -223,13 +234,13 @@ export function ProbeURL(rawURL: string): $CancellablePromise<application$0.Prob
 
 export function RecycleCompletedDownloadFiles(ids: string[]): $CancellablePromise<application$0.CompletedFileOperationResult> {
     return $Call.ByID(394831830, ids).then(($result: any) => {
-        return $$createType16($result);
+        return $$createType2($result);
     });
 }
 
 export function RemoveCompletedDownloadHistory(ids: string[]): $CancellablePromise<application$0.CompletedFileOperationResult> {
     return $Call.ByID(102974978, ids).then(($result: any) => {
-        return $$createType16($result);
+        return $$createType2($result);
     });
 }
 
@@ -261,25 +272,25 @@ export function RevealCompletedDownloadFile(id: string): $CancellablePromise<voi
 
 export function SaveCategory(input: application$0.SaveCategoryInput): $CancellablePromise<organization$0.Category> {
     return $Call.ByID(2195800744, input).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType4($result);
     });
 }
 
 export function SaveQueue(input: application$0.SaveQueueInput): $CancellablePromise<organization$0.Queue> {
     return $Call.ByID(4198045279, input).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType9($result);
     });
 }
 
 export function SaveSchedule(input: application$0.SaveScheduleInput): $CancellablePromise<scheduler$0.Schedule> {
     return $Call.ByID(4069048541, input).then(($result: any) => {
-        return $$createType12($result);
+        return $$createType13($result);
     });
 }
 
 export function SaveSiteProfile(input: application$0.SaveSiteProfileInput): $CancellablePromise<siteprofile$0.Profile> {
     return $Call.ByID(2025745236, input).then(($result: any) => {
-        return $$createType14($result);
+        return $$createType15($result);
     });
 }
 
@@ -308,19 +319,19 @@ export function StartDownload(id: string): $CancellablePromise<void> {
 // Private type creation functions
 const $$createType0 = application$0.UpdateDTO.createFrom;
 const $$createType1 = application$0.DownloadDTO.createFrom;
-const $$createType2 = application$0.HealthStatus.createFrom;
-const $$createType3 = organization$0.Category.createFrom;
-const $$createType4 = $Create.Array($$createType3);
-const $$createType5 = $Create.Array($$createType1);
-const $$createType6 = application$0.DownloadRequestEvent.createFrom;
-const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = organization$0.Queue.createFrom;
-const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = scheduler$0.History.createFrom;
-const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = scheduler$0.Schedule.createFrom;
-const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = siteprofile$0.Profile.createFrom;
-const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = application$0.CompletedFileOperationResult.createFrom;
+const $$createType2 = application$0.CompletedFileOperationResult.createFrom;
+const $$createType3 = application$0.HealthStatus.createFrom;
+const $$createType4 = organization$0.Category.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = $Create.Array($$createType1);
+const $$createType7 = application$0.DownloadRequestEvent.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = organization$0.Queue.createFrom;
+const $$createType10 = $Create.Array($$createType9);
+const $$createType11 = scheduler$0.History.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = scheduler$0.Schedule.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = siteprofile$0.Profile.createFrom;
+const $$createType16 = $Create.Array($$createType15);
 const $$createType17 = application$0.ProbeDTO.createFrom;

@@ -526,6 +526,16 @@ func (a *App) RecycleCompletedDownloadFiles(ids []string) (application.Completed
 	return a.files.RecycleAndRemoveHistory(a.ctx, ids)
 }
 
+// DeleteCompletedDownloadFiles permanently deletes completed files and their
+// history records. It does not require the Windows shell, so it also supports
+// portable copies running from removable or nonstandard volumes.
+func (a *App) DeleteCompletedDownloadFiles(ids []string) (application.CompletedFileOperationResult, error) {
+	if a.files == nil {
+		return application.CompletedFileOperationResult{}, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
+	}
+	return a.files.DeleteFilesAndRemoveHistory(a.ctx, ids)
+}
+
 func (a *App) ListCategories() ([]organization.Category, error) {
 	if a.organization == nil {
 		return nil, application.NewError(application.ErrUnavailable, "Backend is not ready.", nil)
