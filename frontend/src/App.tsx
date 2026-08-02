@@ -32,6 +32,10 @@ export default function App() {
   const currentNavigation = getNavigationItem(activeSection)
 
   useEffect(() => {
+    let disposed = false
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
+    let attempts = 0
+
     Events.On("app:ready", (payload: unknown) => {
       if (isReadyEvent(payload)) setReadyMessage(payload.message)
     })
@@ -48,13 +52,30 @@ export default function App() {
       }
     }
     window.addEventListener("keydown", onKeyDown)
-    void healthCheck()
-      .then(setHealth)
-      .catch(() => {
-        setError("Backend health check failed")
-        setReadyMessage("Backend unavailable")
-      })
+    const checkBackend = () => {
+      void healthCheck()
+        .then((status) => {
+          if (disposed) return
+          setHealth(status)
+          setError(null)
+          setReadyMessage("Backend services are ready")
+        })
+        .catch(() => {
+          if (disposed) return
+          attempts += 1
+          if (attempts >= 8) {
+            setError("Backend health check failed")
+            setReadyMessage("Backend unavailable")
+            return
+          }
+          setReadyMessage("Waiting for backend…")
+          retryTimer = setTimeout(checkBackend, Math.min(250 * 2 ** (attempts - 1), 4_000))
+        })
+    }
+    checkBackend()
     return () => {
+      disposed = true
+      if (retryTimer !== undefined) clearTimeout(retryTimer)
       Events.Off("app:ready")
       Events.Off("tray:add-download")
 		Events.Off("tray:updates")

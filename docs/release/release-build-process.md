@@ -2,7 +2,7 @@
 
 This runbook is the authoritative procedure for producing and publishing a FluxDM Windows release. It covers the portable unsigned testing channel and the signed production NSIS installer build.
 
-Every release publishes a standalone portable EXE and a browser-extension ZIP. Stable releases additionally publish the signed NSIS installer. The portable EXE stores its data beside itself and deliberately excludes the native host, so browser handoff requires the installed application.
+Every release publishes a standalone portable EXE, a browser-extension ZIP, and a portable browser-integration ZIP. Stable releases additionally publish the signed NSIS installer. Extracting the portable browser-integration ZIP beside the portable EXE provides the native host and per-user registration scripts required for browser handoff.
 
 ## Release contract
 
@@ -12,7 +12,7 @@ Every release publishes a standalone portable EXE and a browser-extension ZIP. S
 | Product version | `wails.json` `info.productVersion` must be exactly `X.Y.Z`. |
 | Production publishing workflow | `.github/workflows/release.yml`, triggered only by pushed `vX.Y.Z` tags. |
 | Signing boundary | The approved `release` GitHub Environment and the `self-hosted`, `windows`, `fluxdm-signing` runner. |
-| Published assets | Versioned installer, portable EXE, and browser-extension ZIP, each with an adjacent `.sha256`, plus `SHA256SUMS.txt`, `release-manifest.json`, signed `update-manifest.json`, and `update-manifest.sig`. |
+| Published assets | Versioned installer, portable EXE, browser-extension ZIP, and portable browser-integration ZIP, each with an adjacent `.sha256`, plus `SHA256SUMS.txt`, `release-manifest.json`, signed `update-manifest.json`, and `update-manifest.sig`. |
 | Release-candidate workflow | `.github/workflows/rc-release.yml`, triggered by `vX.Y.Z-rc.N` tags and always published as a portable prerelease. |
 | Unsigned artifacts | May be published only through the explicit release-candidate channel; they are never production releases. |
 
@@ -33,7 +33,7 @@ Use the channel that matches the artifact's trust level. A green workflow is not
 | Manifest | `version: X.Y.Z-rc.N`, `productVersion: X.Y.Z`, `portable: true`, `signed: false`. | `version: X.Y.Z`, `productVersion: X.Y.Z`, `signed: true`. |
 | Tester/user message | Windows SmartScreen or an unknown-publisher warning is expected. Do not call it trusted or production-ready. | Verify the checksum and valid Authenticode signature before announcement. |
 
-The portable RC channel publishes six custom assets: a versioned portable EXE and browser-extension ZIP, each with an adjacent `.sha256`, plus `SHA256SUMS.txt` and `release-manifest.json`. Stable releases additionally retain the signed installer and installer update metadata. GitHub also supplies source archives separately.
+The portable RC channel publishes eight custom assets: a versioned portable EXE, browser-extension ZIP, and portable browser-integration ZIP, each with an adjacent `.sha256`, plus `SHA256SUMS.txt` and `release-manifest.json`. Stable releases additionally retain the signed installer and installer update metadata. GitHub also supplies source archives separately.
 
 ## Unsigned release candidates while signing is unavailable
 
@@ -81,27 +81,29 @@ git ls-remote --tags origin refs/tags/vX.Y.Z-rc.N
 
 ### 3. Review the workflow and published prerelease
 
-The **portable Windows release candidate** workflow runs on GitHub-hosted `windows-2022`, executes the complete validation suite, builds a portable-mode desktop EXE, packages the browser-extension ZIP, and publishes a GitHub **prerelease**.
+The **portable Windows release candidate** workflow runs on GitHub-hosted `windows-2022`, executes the complete validation suite, builds portable-mode desktop and native-host EXEs, packages browser-extension and portable browser-integration ZIPs, and publishes a GitHub **prerelease**.
 
 Before sharing it, verify all of the following in the workflow and GitHub Release page:
 
 1. The workflow ref is exactly `vX.Y.Z-rc.N` and its commit SHA is the commit recorded above.
 2. The workflow's staging output names the portable executable `FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe`.
-3. The GitHub prerelease contains all six custom assets:
+3. The GitHub prerelease contains all eight custom assets:
 
    ```text
    FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe
    FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe.sha256
    FluxDM-X.Y.Z-rc.N-browser-extension.zip
    FluxDM-X.Y.Z-rc.N-browser-extension.zip.sha256
+   FluxDM-X.Y.Z-rc.N-windows-amd64-portable-browser-integration.zip
+   FluxDM-X.Y.Z-rc.N-windows-amd64-portable-browser-integration.zip.sha256
    SHA256SUMS.txt
    release-manifest.json
    ```
 
 4. `release-manifest.json` identifies the RC version, numeric product version, `portable: true`, `signed: false`, and both release artifacts.
-5. `SHA256SUMS.txt` identifies the RC portable EXE and browser-extension ZIP filenames exactly.
+5. `SHA256SUMS.txt` identifies the RC portable EXE, browser-extension ZIP, and portable browser-integration ZIP filenames exactly.
 
-Share the portable EXE, browser-extension ZIP, checksum files, and the explicit warning that the executable is unsigned. Testers must compare `Get-FileHash -Algorithm SHA256` output with `SHA256SUMS.txt` before running or extracting either artifact:
+Share the portable EXE, browser-extension ZIP, portable browser-integration ZIP, checksum files, and the explicit warning that the executable is unsigned. Testers must compare `Get-FileHash -Algorithm SHA256` output with `SHA256SUMS.txt` before running or extracting the artifacts:
 
 ```powershell
 $portable = '.\FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe'
@@ -110,9 +112,9 @@ Get-FileHash -Algorithm SHA256 -LiteralPath .\FluxDM-X.Y.Z-rc.N-browser-extensio
 Get-Content .\SHA256SUMS.txt
 ```
 
-Save the portable EXE in a user-writable folder. The first run stores application data beside the executable in `data`; it does not create shortcuts, an uninstaller, a service, or a machine-wide registry entry. The standalone EXE does not include the native host required for browser handoff; use the signed installer for browser integration.
+Save the portable EXE in a user-writable folder. The first run stores application data beside the executable in `data`; it does not create shortcuts, an uninstaller, a service, or a machine-wide registry entry. To enable browser handoff, extract the portable browser-integration ZIP into that same folder, run `scripts\install-browser-integration.ps1`, then load its `browser-extension` folder unpacked. Keep exactly one versioned portable EXE in the folder.
 
-The public assets are named `FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe` and `FluxDM-X.Y.Z-rc.N-browser-extension.zip`. Its `release-manifest.json` records the release-candidate version, packaged `X.Y.Z` product version, `portable: true`, and `signed: false`. Windows SmartScreen or an unknown-publisher warning may still occur for the portable executable; a checksum confirms the downloaded bytes but does **not** establish publisher identity. Do not present this as a production, trusted, or signed release.
+The public assets are named `FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe`, `FluxDM-X.Y.Z-rc.N-browser-extension.zip`, and `FluxDM-X.Y.Z-rc.N-windows-amd64-portable-browser-integration.zip`. Its `release-manifest.json` records the release-candidate version, packaged `X.Y.Z` product version, `portable: true`, and `signed: false`. Windows SmartScreen or an unknown-publisher warning may still occur for the portable executable; a checksum confirms the downloaded bytes but does **not** establish publisher identity. Do not present this as a production, trusted, or signed release.
 
 This release-candidate workflow has no `release` environment, certificate thumbprint, timestamp endpoint, update-signing key, or self-hosted signing runner. Portable builds do not use the installer updater; replace the verified portable EXE when testing a newer RC. When signing becomes available, create a new final `vX.Y.Z` tag for the signed production workflow; do not promote or rename an unsigned release-candidate tag.
 

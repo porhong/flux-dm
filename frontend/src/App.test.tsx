@@ -95,6 +95,7 @@ describe("App", () => {
     expect(credit.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole("heading", { name: "Downloads" })).toBeInTheDocument()
     expect(await screen.findByText("Healthy")).toBeInTheDocument()
+    expect(screen.getByText("Backend services are ready")).toBeInTheDocument()
     expect(healthCheckMock).toHaveBeenCalledOnce()
   })
 

@@ -55,8 +55,12 @@ try{
   wails3 build;if($LASTEXITCODE){throw 'Portable Wails v3 build failed'}
   $portableApp=Join-Path $root 'build\bin\FluxDM-portable.exe'
   Move-Item -LiteralPath $app -Destination $portableApp -Force
+  $portableNativeHost=Join-Path $root 'build\bin\FluxDM.NativeHost.exe'
+  go build -trimpath -ldflags $portableLDFlags -o $portableNativeHost .\cmd\fluxdm-native-host;if($LASTEXITCODE){throw 'Portable native host build failed'}
   & "$PSScriptRoot\verify-version-metadata.ps1" -Path $portableApp -Version $productVersion
-  if($Sign){& "$PSScriptRoot\sign-release.ps1" -Path @($portableApp) -CertificateThumbprint $CertificateThumbprint -SignToolPath $signToolCommand -TimestampUrl $TimestampUrl -AllowUntimestampedTestSignature:$AllowUntimestampedTestSignature;& "$PSScriptRoot\verify-release.ps1" -Path @($portableApp) -SignToolPath $SignToolPath}
-  & "$PSScriptRoot\stage-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $productVersion -InstallerPath $installer.FullName -PortablePath $portableApp -ExtensionPackagePath $extensionPackage -OutputDirectory $ReleaseOutputDirectory -Signed:$Sign
+  if($Sign){& "$PSScriptRoot\sign-release.ps1" -Path @($portableApp,$portableNativeHost) -CertificateThumbprint $CertificateThumbprint -SignToolPath $signToolCommand -TimestampUrl $TimestampUrl -AllowUntimestampedTestSignature:$AllowUntimestampedTestSignature;& "$PSScriptRoot\verify-release.ps1" -Path @($portableApp,$portableNativeHost) -SignToolPath $SignToolPath}
+  $portableBrowserIntegrationPackage=Join-Path $root 'build\bin\FluxDM-portable-browser-integration.zip'
+  & "$PSScriptRoot\package-portable-browser-integration.ps1" -Version $ReleaseVersion -NativeHostPath $portableNativeHost -OutputPath $portableBrowserIntegrationPackage -Force | Out-Null
+  & "$PSScriptRoot\stage-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $productVersion -InstallerPath $installer.FullName -PortablePath $portableApp -ExtensionPackagePath $extensionPackage -PortableBrowserIntegrationPackagePath $portableBrowserIntegrationPackage -OutputDirectory $ReleaseOutputDirectory -Signed:$Sign
   Write-Host "Release assets created in $ReleaseOutputDirectory"
 }finally{Pop-Location}

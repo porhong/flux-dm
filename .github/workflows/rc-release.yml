@@ -60,7 +60,7 @@ jobs:
             -Version '${{ steps.version.outputs.product_version }}' `
             -ReleaseVersion '${{ steps.version.outputs.release_version }}'
 
-      - name: Publish portable release candidate and browser extension
+      - name: Publish portable release candidate and browser integration
         uses: softprops/action-gh-release@v2
         with:
           fail_on_unmatched_files: true
@@ -70,11 +70,13 @@ jobs:
           body: |
             ## Portable unsigned release candidate
 
-            This test build is portable: save the EXE in a user-writable folder and run it; it does not install software or require administrator access. It is intentionally **not Authenticode-signed**, so Windows may show a SmartScreen or publisher warning. Verify its SHA-256 against `SHA256SUMS.txt` before using it. The browser-extension ZIP is published separately for store submission or unpacked loading; browser handoff requires the installed application. Do not treat this prerelease as a production release.
+            This test build is portable: save the EXE in a user-writable folder and run it; it does not install software or require administrator access. It is intentionally **not Authenticode-signed**, so Windows may show a SmartScreen or publisher warning. Verify its SHA-256 against `SHA256SUMS.txt` before using it. For browser handoff, extract the portable browser-integration ZIP into the same folder as the portable EXE, run its registration script, and load its extension folder unpacked. Do not treat this prerelease as a production release.
           files: |
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable.exe
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable.exe.sha256
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip.sha256
+            build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable-browser-integration.zip
+            build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable-browser-integration.zip.sha256
             build/release/SHA256SUMS.txt
             build/release/release-manifest.json

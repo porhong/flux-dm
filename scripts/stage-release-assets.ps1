@@ -14,6 +14,9 @@ param(
   [Parameter(Mandatory)]
   [string]$ExtensionPackagePath,
 
+  [Parameter(Mandatory)]
+  [string]$PortableBrowserIntegrationPackagePath,
+
   [string]$OutputDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'build\release'),
 
   [switch]$Signed,
@@ -33,6 +36,7 @@ if (($Version -replace '-rc\.[1-9][0-9]*$', '') -ne $ProductVersion) {
 $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
 $portable = (Resolve-Path -LiteralPath $PortablePath).Path
 $extensionPackage = (Resolve-Path -LiteralPath $ExtensionPackagePath).Path
+$portableBrowserIntegrationPackage = (Resolve-Path -LiteralPath $PortableBrowserIntegrationPackagePath).Path
 if ([IO.Path]::GetExtension($portable) -ne '.exe') { throw "PortablePath must be an .exe file: '$PortablePath'" }
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $output | Out-Null
@@ -46,6 +50,9 @@ $portableChecksumPath = "$releasePortable.sha256"
 $extensionName = "FluxDM-$Version-browser-extension.zip"
 $releaseExtension = Join-Path $output $extensionName
 $extensionChecksumPath = "$releaseExtension.sha256"
+$portableBrowserIntegrationName = "FluxDM-$Version-windows-amd64-portable-browser-integration.zip"
+$releasePortableBrowserIntegration = Join-Path $output $portableBrowserIntegrationName
+$portableBrowserIntegrationChecksumPath = "$releasePortableBrowserIntegration.sha256"
 $sumsPath = Join-Path $output 'SHA256SUMS.txt'
 $manifestPath = Join-Path $output 'release-manifest.json'
 $updateManifestPath = Join-Path $output 'update-manifest.json'
@@ -54,13 +61,16 @@ $updateSignaturePath = Join-Path $output 'update-manifest.sig'
 Copy-Item -LiteralPath $installer -Destination $releaseInstaller -Force
 Copy-Item -LiteralPath $portable -Destination $releasePortable -Force
 Copy-Item -LiteralPath $extensionPackage -Destination $releaseExtension -Force
+Copy-Item -LiteralPath $portableBrowserIntegrationPackage -Destination $releasePortableBrowserIntegration -Force
 $sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $releaseInstaller).Hash.ToLowerInvariant()
 $portableSHA256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $releasePortable).Hash.ToLowerInvariant()
 $extensionSHA256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $releaseExtension).Hash.ToLowerInvariant()
+$portableBrowserIntegrationSHA256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $releasePortableBrowserIntegration).Hash.ToLowerInvariant()
 "$sha256  $installerName" | Set-Content -Encoding ascii -NoNewline -LiteralPath $checksumPath
 "$portableSHA256  $portableName" | Set-Content -Encoding ascii -NoNewline -LiteralPath $portableChecksumPath
 "$extensionSHA256  $extensionName" | Set-Content -Encoding ascii -NoNewline -LiteralPath $extensionChecksumPath
-[IO.File]::WriteAllText($sumsPath, "$sha256  $installerName`n$portableSHA256  $portableName`n$extensionSHA256  $extensionName`n", [Text.ASCIIEncoding]::new())
+"$portableBrowserIntegrationSHA256  $portableBrowserIntegrationName" | Set-Content -Encoding ascii -NoNewline -LiteralPath $portableBrowserIntegrationChecksumPath
+[IO.File]::WriteAllText($sumsPath, "$sha256  $installerName`n$portableSHA256  $portableName`n$extensionSHA256  $extensionName`n$portableBrowserIntegrationSHA256  $portableBrowserIntegrationName`n", [Text.ASCIIEncoding]::new())
 
 [ordered]@{
   version = $Version
@@ -85,6 +95,12 @@ $extensionSHA256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $releaseExtensio
       file = $extensionName
       sha256 = $extensionSHA256
       bytes = (Get-Item -LiteralPath $releaseExtension).Length
+    },
+    [ordered]@{
+      kind = 'portable-browser-integration'
+      file = $portableBrowserIntegrationName
+      sha256 = $portableBrowserIntegrationSHA256
+      bytes = (Get-Item -LiteralPath $releasePortableBrowserIntegration).Length
     }
   )
 } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 -LiteralPath $manifestPath
@@ -116,6 +132,8 @@ if ($signingKey) {
   portableChecksum = $portableChecksumPath
   extension = $releaseExtension
   extensionChecksum = $extensionChecksumPath
+  portableBrowserIntegration = $releasePortableBrowserIntegration
+  portableBrowserIntegrationChecksum = $portableBrowserIntegrationChecksumPath
   checksums = $sumsPath
   manifest = $manifestPath
   updateManifest = if (Test-Path -LiteralPath $updateManifestPath) { $updateManifestPath } else { '' }

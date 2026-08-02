@@ -55,7 +55,7 @@ The SQLite database and structured log are stored below the current user's confi
 
 ## Browser extension
 
-Browser integration requires the installed FluxDM application, which registers the native host. The standalone portable EXE does not include browser-handoff support. Each release publishes a separate browser-extension ZIP for store submission or unpacked loading.
+Browser integration requires the native host. For a portable release, extract `FluxDM-X.Y.Z-rc.N-windows-amd64-portable-browser-integration.zip` into the same folder as the portable EXE, run `scripts\install-browser-integration.ps1`, then load its `browser-extension` folder unpacked. Keep exactly one versioned portable EXE in that folder. Each release also publishes a separate browser-extension ZIP for store submission or unpacked loading.
 
 Each release additionally includes `FluxDM-X.Y.Z-browser-extension.zip` for official browser-store submission or portable loading: extract it before using **Load unpacked**, because Chromium browsers do not import a local ZIP directly. For a source-tree development build, run `scripts\install-browser-integration.ps1` first and load this repository's `browser-extension` directory.
 
@@ -109,7 +109,7 @@ Get-Content .\SHA256SUMS.txt
 
 The reported hash must match the portable EXE entry. `release-manifest.json` is the corresponding machine-readable asset manifest.
 
-Release candidates publish an **unsigned portable EXE**. Update and merge the intended `X.Y.Z` product version, then push a new `vX.Y.Z-rc.N` tag (for example, `v1.0.0-rc.1`). This creates a clearly labelled GitHub prerelease from a GitHub-hosted runner with the versioned portable EXE, browser-extension ZIP, and SHA-256 files, but it does not use signing secrets or a certificate. Verify the checksum before running; Windows may still display a SmartScreen or publisher warning. Release candidates are not production releases and must not be announced as trusted/signed downloads.
+Release candidates publish an **unsigned portable EXE**, a browser-extension ZIP, and a portable browser-integration ZIP. Update and merge the intended `X.Y.Z` product version, then push a new `vX.Y.Z-rc.N` tag (for example, `v1.0.0-rc.1`). This creates a clearly labelled GitHub prerelease from a GitHub-hosted runner without signing secrets or a certificate. Verify the checksums before running or extracting; Windows may still display a SmartScreen or publisher warning. Release candidates are not production releases and must not be announced as trusted/signed downloads.
 
 Production releases are created by pushing the matching protected `vX.Y.Z` tag. The signed workflow waits for approval of the protected `release` environment, then runs on the dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. That runner must have Go, Node.js, Wails, MinGW/GCC, NSIS, Windows SDK `signtool`, 7-Zip, and access to the hardware- or OS-backed Authenticode certificate. Its certificate thumbprint and RFC 3161 timestamp URL are protected environment configuration; no PFX or private key is stored in GitHub or this repository.
 

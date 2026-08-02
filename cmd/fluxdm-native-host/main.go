@@ -63,8 +63,8 @@ func launchDesktop() error {
 	if err != nil {
 		return err
 	}
-	desktop := filepath.Join(filepath.Dir(executable), "FluxDM.exe")
-	if _, err := os.Stat(desktop); err != nil {
+	desktop, err := desktopExecutablePath(filepath.Dir(executable))
+	if err != nil {
 		return err
 	}
 	// This fixed internal argument is the only launch mode that suppresses the
@@ -74,4 +74,19 @@ func launchDesktop() error {
 	command.Stdout = nil
 	command.Stderr = nil
 	return command.Start()
+}
+
+func desktopExecutablePath(directory string) (string, error) {
+	installed := filepath.Join(directory, "FluxDM.exe")
+	if info, err := os.Stat(installed); err == nil && !info.IsDir() {
+		return installed, nil
+	}
+	portable, err := filepath.Glob(filepath.Join(directory, "FluxDM-*-windows-amd64-portable.exe"))
+	if err != nil {
+		return "", err
+	}
+	if len(portable) != 1 {
+		return "", errors.New("portable FluxDM executable was not found uniquely")
+	}
+	return portable[0], nil
 }

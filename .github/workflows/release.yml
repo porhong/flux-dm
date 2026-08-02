@@ -78,6 +78,8 @@ jobs:
             build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-portable.exe.sha256
             build/release/FluxDM-${{ steps.version.outputs.version }}-browser-extension.zip
             build/release/FluxDM-${{ steps.version.outputs.version }}-browser-extension.zip.sha256
+            build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-portable-browser-integration.zip
+            build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-portable-browser-integration.zip.sha256
             build/release/SHA256SUMS.txt
             build/release/release-manifest.json
             build/release/update-manifest.json
