@@ -31,12 +31,13 @@ try {
   New-Item -ItemType Directory -Force -Path $temporaryRoot | Out-Null
   Copy-Item -LiteralPath $nativeHost -Destination (Join-Path $temporaryRoot 'FluxDM.NativeHost.exe')
   $packagedExtension = Join-Path $temporaryRoot 'browser-extension'
-  foreach ($sourceFile in Get-ChildItem -LiteralPath $extension -Recurse -File) {
-    $relativePath = $sourceFile.FullName.Substring($extension.Length + 1)
-    if ($relativePath -eq 'README.md' -or $relativePath -eq 'policy.test.cjs' -or $relativePath.StartsWith('native-host\', [StringComparison]::OrdinalIgnoreCase)) { continue }
-    $destination = Join-Path $packagedExtension $relativePath
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
-    Copy-Item -LiteralPath $sourceFile.FullName -Destination $destination
+  Copy-Item -LiteralPath $extension -Destination $temporaryRoot -Recurse
+  foreach ($developmentPath in @('README.md', 'policy.test.cjs', 'native-host')) {
+    $candidate = Join-Path $packagedExtension $developmentPath
+    $resolvedCandidate = [IO.Path]::GetFullPath($candidate)
+    $temporaryPrefix = [IO.Path]::GetFullPath($temporaryRoot).TrimEnd('\') + '\'
+    if (-not $resolvedCandidate.StartsWith($temporaryPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Refusing cleanup outside package staging: $resolvedCandidate" }
+    if (Test-Path -LiteralPath $resolvedCandidate) { Remove-Item -LiteralPath $resolvedCandidate -Recurse -Force }
   }
   if (-not (Test-Path -LiteralPath (Join-Path $packagedExtension 'manifest.json'))) { throw 'Portable browser integration package is missing manifest.json.' }
   New-Item -ItemType Directory -Force -Path (Join-Path $temporaryRoot 'scripts') | Out-Null
