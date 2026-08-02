@@ -1,6 +1,6 @@
 # FluxDM
 
-FluxDM is an original Windows download manager built with Wails, Go, React, and TypeScript. The repository implements **Milestones 0–11**, including portable Windows release candidates and a signed-installer production workflow.
+FluxDM is an original Windows download manager built with Wails, Go, React, and TypeScript. Releases are portable Windows builds with portable browser integration.
 
 ## Foundation
 
@@ -57,7 +57,7 @@ The SQLite database and structured log are stored below the current user's confi
 
 Browser integration requires the native host. For a portable release, extract `FluxDM-X.Y.Z-rc.N-windows-amd64-portable-browser-integration.zip` into the same folder as the portable EXE, run `scripts\install-browser-integration.ps1`, then load its `browser-extension` folder unpacked. Keep exactly one versioned portable EXE in that folder. Each release also publishes a separate browser-extension ZIP for store submission or unpacked loading.
 
-Each release additionally includes `FluxDM-X.Y.Z-browser-extension.zip` for official browser-store submission or portable loading: extract it before using **Load unpacked**, because Chromium browsers do not import a local ZIP directly. For a source-tree development build, run `scripts\install-browser-integration.ps1` first and load this repository's `browser-extension` directory.
+The portable browser-integration ZIP contains the matching extension. Extract it before using **Load unpacked**, because Chromium browsers do not import a local ZIP directly. For a source-tree development build, run `scripts\install-browser-integration.ps1` first and load this repository's `browser-extension` directory.
 
 The isolated real-browser smoke harness temporarily registers the native host under the current user, launches FluxDM with temporary application/user data, exercises connection, direct handoff, and automatic interception, then restores the registry and removes all test state:
 
@@ -109,9 +109,9 @@ Get-Content .\SHA256SUMS.txt
 
 The reported hash must match the portable EXE entry. `release-manifest.json` is the corresponding machine-readable asset manifest.
 
-Release candidates publish an **unsigned portable EXE**, a browser-extension ZIP, and a portable browser-integration ZIP. Update and merge the intended `X.Y.Z` product version, then push a new `vX.Y.Z-rc.N` tag (for example, `v1.0.0-rc.1`). This creates a clearly labelled GitHub prerelease from a GitHub-hosted runner without signing secrets or a certificate. Verify the checksums before running or extracting; Windows may still display a SmartScreen or publisher warning. Release candidates are not production releases and must not be announced as trusted/signed downloads.
+Release candidates publish an **unsigned portable EXE** and its matching portable browser-integration ZIP. Update and merge the intended `X.Y.Z` product version, then push a new `vX.Y.Z-rc.N` tag (for example, `v1.0.0-rc.1`). This creates a clearly labelled GitHub prerelease from a GitHub-hosted runner. Verify the checksums before running or extracting; Windows may still display a SmartScreen or publisher warning.
 
-Production releases are created by pushing the matching protected `vX.Y.Z` tag. The signed workflow waits for approval of the protected `release` environment, then runs on the dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. That runner must have Go, Node.js, Wails, MinGW/GCC, NSIS, Windows SDK `signtool`, 7-Zip, and access to the hardware- or OS-backed Authenticode certificate. Its certificate thumbprint and RFC 3161 timestamp URL are protected environment configuration; no PFX or private key is stored in GitHub or this repository.
+Stable portable releases are created by pushing the matching `vX.Y.Z` tag. The GitHub-hosted Windows workflow validates, builds, and publishes only the portable EXE, matching portable browser-integration ZIP, checksums, and release manifest. No installer, installer updater metadata, or standalone extension ZIP is published.
 
 For the complete RC and production procedures—including exact tag commands, required release assets, signing approval, checksum/signature verification, and recovery from a failed candidate—follow the [release build process](docs/release/release-build-process.md).
 

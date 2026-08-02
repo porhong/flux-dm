@@ -1,0 +1,21 @@
+﻿{
+    "version":  "1.0.0",
+    "productVersion":  "1.0.0",
+    "portable":  true,
+    "signed":  false,
+    "generatedAt":  "2026-08-02T05:14:58.3494281Z",
+    "artifacts":  [
+                      {
+                          "kind":  "portable",
+                          "file":  "FluxDM-1.0.0-windows-amd64-portable.exe",
+                          "sha256":  "9f73f362b81b87d37a4ae5c66684159616dd3526ad9ac8dba27df3e4a7dac53b",
+                          "bytes":  19960832
+                      },
+                      {
+                          "kind":  "portable-browser-integration",
+                          "file":  "FluxDM-1.0.0-windows-amd64-portable-browser-integration.zip",
+                          "sha256":  "c140692bf76c7a7c41ed7ad4059bed07960f34a99ab18632ebc5fe75db83b7d8",
+                          "bytes":  4381289
+                      }
+                  ]
+}

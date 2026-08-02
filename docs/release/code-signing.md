@@ -1,13 +1,5 @@
-# Code-signing strategy
+# Release integrity
 
-Production releases require an organization-validated Authenticode code-signing certificate available in the Windows certificate store. The private key must remain in a hardware- or OS-backed provider; it is never stored in this repository, GitHub secrets, or a release artifact.
+The active FluxDM release pipeline is portable-only. It does not build or publish an installer and therefore has no installer-signing or installer-update requirements.
 
-GitHub publication is limited to protected `vX.Y.Z` tags. The `signed Windows release` workflow first verifies that the tag is strict semver and exactly matches `wails.json`, then waits for approval of the protected `release` environment. Only after approval does it run on the dedicated `self-hosted`, `windows`, `fluxdm-signing` runner. That runner must provide Go, Node.js, the pinned Wails CLI, MinGW/GCC, NSIS, Windows SDK `signtool`, and 7-Zip, in addition to access to the signing certificate. Configure `FLUXDM_CERT_THUMBPRINT` and `FLUXDM_TIMESTAMP_URL` only as protected-environment secrets. Do not export a PFX, private key, or signing-service credential into GitHub Actions logs or artifacts.
-
-`scripts/build-release.ps1 -Sign` signs `FluxDM.exe` and `FluxDM.NativeHost.exe` before rebuilding the installer. NSIS then signs the embedded uninstaller and final installer through its finalize hooks. Every signature uses SHA-256 and an RFC 3161 timestamp. `scripts/verify-release.ps1` checks both PowerShell Authenticode status and WinVerifyTrust through `signtool verify /pa /all`.
-
-Unsigned development installers may be built for local testing or CI, but must not be published as releases. Stable release publication is blocked unless the installer, packaged desktop executable, packaged native host, embedded uninstaller, portable EXE, and portable browser-integration bundle validate. A stable release publishes the signed, versioned NSIS installer and portable EXE plus browser-extension and portable browser-integration ZIPs, adjacent SHA-256 files, `SHA256SUMS.txt`, and `release-manifest.json`. RC releases publish an unsigned portable EXE and both ZIPs. ZIPs are integrity-checked but are not Authenticode-signed executables.
-
-`-AllowUntimestampedTestSignature` exists only to exercise the complete signing/NSIS verification path with an ephemeral local test certificate when a timestamp authority is unavailable. It requires an empty `-TimestampUrl`, is never acceptable for publication, and does not relax the default production requirement for an RFC 3161 timestamp.
-
-Pass a full 7-Zip executable through `-SevenZipPath` to make `scripts/build-release.ps1` independently extract the final NSIS artifact and compare every packaged application/extension file with its release input. For signed builds, this also requires valid Authenticode status on the installer, packaged desktop executable, packaged native host, and embedded uninstaller. The packaged WebView2 bootstrapper is always required to have a valid Microsoft Corporation signature.
+Each release publishes SHA-256 checksum files and `release-manifest.json` for the portable EXE and matching portable browser-integration ZIP. Verify the downloaded files against these checksums before use. See [release-build-process.md](release-build-process.md) for the current process.

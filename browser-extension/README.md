@@ -2,7 +2,7 @@
 
 The standalone portable FluxDM EXE requires the matching `portable-browser-integration.zip` for browser handoff. Extract that ZIP into the same folder as the portable EXE, run its registration script, then load its included extension folder unpacked. Installed releases register the native host during setup.
 
-Every release also includes `FluxDM-X.Y.Z-browser-extension.zip`. This is the browser-store submission and unpacked-loading package. Chrome, Edge, and Brave do not install a local ZIP directly from their extensions pages: extract the ZIP, enable **Developer mode**, then select **Load unpacked** and choose the extracted folder. A store-published extension should be installed from that browser's official store instead.
+The matching portable browser-integration ZIP contains the unpacked extension. Chrome, Edge, and Brave do not install a local ZIP directly from their extensions pages: extract that ZIP, enable **Developer mode**, then select **Load unpacked** and choose its `browser-extension` folder.
 
 1. For a source-tree development build, run `scripts\install-browser-integration.ps1` from the repository root. Installed releases register the native host during setup.
 2. Open `chrome://extensions`, `edge://extensions`, or `brave://extensions`.

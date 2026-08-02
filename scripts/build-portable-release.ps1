@@ -32,14 +32,12 @@ try {
   $commonLDFlags = "-s -w -X github.com/fluxdm/fluxdm/internal/application.ReleaseVersion=$ReleaseVersion -X github.com/fluxdm/fluxdm/internal/application.PortableMode=true"
   $env:FLUXDM_BUILD_LDFLAGS = "$commonLDFlags -H windowsgui"
   wails3 build; if($LASTEXITCODE){throw 'Wails v3 build failed'}
-  $extensionPackage = Join-Path $root 'build\bin\FluxDM-browser-extension.zip'
-  & "$PSScriptRoot\package-browser-extension.ps1" -ExpectedVersion $productVersion -OutputPath $extensionPackage -Force; if($LASTEXITCODE){throw 'Browser extension package build failed'}
   $portableApp = Join-Path $root 'build\bin\FluxDM.exe'
   $portableNativeHost = Join-Path $root 'build\bin\FluxDM.NativeHost.exe'
   go build -trimpath -ldflags $commonLDFlags -o $portableNativeHost .\cmd\fluxdm-native-host; if($LASTEXITCODE){throw 'Portable native host build failed'}
   $portableBrowserIntegrationPackage = Join-Path $root 'build\bin\FluxDM-portable-browser-integration.zip'
   & "$PSScriptRoot\package-portable-browser-integration.ps1" -Version $ReleaseVersion -NativeHostPath $portableNativeHost -OutputPath $portableBrowserIntegrationPackage -Force | Out-Null
   & "$PSScriptRoot\verify-version-metadata.ps1" -Path $portableApp -Version $productVersion
-  & "$PSScriptRoot\stage-portable-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $productVersion -PortablePath $portableApp -ExtensionPackagePath $extensionPackage -PortableBrowserIntegrationPackagePath $portableBrowserIntegrationPackage -OutputDirectory $ReleaseOutputDirectory | Out-Null
+  & "$PSScriptRoot\stage-portable-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $productVersion -PortablePath $portableApp -PortableBrowserIntegrationPackagePath $portableBrowserIntegrationPackage -OutputDirectory $ReleaseOutputDirectory | Out-Null
   Write-Host "Portable release assets created in $ReleaseOutputDirectory"
 } finally { Pop-Location }

@@ -1,0 +1,2 @@
+9f73f362b81b87d37a4ae5c66684159616dd3526ad9ac8dba27df3e4a7dac53b  FluxDM-1.0.0-windows-amd64-portable.exe
+c140692bf76c7a7c41ed7ad4059bed07960f34a99ab18632ebc5fe75db83b7d8  FluxDM-1.0.0-windows-amd64-portable-browser-integration.zip

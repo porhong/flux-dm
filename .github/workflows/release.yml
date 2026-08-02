@@ -1,4 +1,4 @@
-name: signed Windows release
+name: portable Windows release
 
 on:
   push:
@@ -10,17 +10,9 @@ permissions:
 
 jobs:
   release:
-    # Release-candidate tags (vX.Y.Z-rc.N) are handled by rc-release.yml and
-    # must never enter the protected signing boundary.
+    # Release-candidate tags (vX.Y.Z-rc.N) are handled by rc-release.yml.
     if: ${{ !contains(github.ref_name, '-') }}
-    runs-on: [self-hosted, windows, fluxdm-signing]
-    environment: release
-    env:
-      FLUXDM_CERT_THUMBPRINT: ${{ secrets.FLUXDM_CERT_THUMBPRINT }}
-      FLUXDM_TIMESTAMP_URL: ${{ secrets.FLUXDM_TIMESTAMP_URL }}
-      FLUXDM_UPDATE_MANIFEST_PRIVATE_KEY: ${{ secrets.FLUXDM_UPDATE_STABLE_PRIVATE_KEY }}
-      FLUXDM_UPDATE_STABLE_PUBLIC_KEY: ${{ vars.FLUXDM_UPDATE_STABLE_PUBLIC_KEY }}
-      FLUXDM_UPDATE_PREVIEW_PUBLIC_KEY: ${{ vars.FLUXDM_UPDATE_PREVIEW_PUBLIC_KEY }}
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +33,11 @@ jobs:
           go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.119
           Join-Path (go env GOPATH) 'bin' | Add-Content -Encoding utf8 $env:GITHUB_PATH
 
+      - name: Prepare Windows build tools
+        shell: pwsh
+        run: |
+          Add-Content -Encoding utf8 $env:GITHUB_PATH 'C:\msys64\ucrt64\bin'
+
       - name: Validate release tag and product version
         id: version
         shell: pwsh
@@ -54,17 +51,13 @@ jobs:
         shell: pwsh
         run: .\scripts\test-release-automation.ps1
 
-      - name: Build, sign, and verify release assets
+      - name: Build and verify portable release assets
         shell: pwsh
         run: |
-          .\scripts\build-release.ps1 `
-            -Sign `
-            -Version '${{ steps.version.outputs.version }}' `
-            -UpdateStablePublicKey "$env:FLUXDM_UPDATE_STABLE_PUBLIC_KEY" `
-            -UpdatePreviewPublicKey "$env:FLUXDM_UPDATE_PREVIEW_PUBLIC_KEY" `
-            -SevenZipPath 'C:\Program Files\7-Zip\7z.exe'
+          .\scripts\build-portable-release.ps1 `
+            -Version '${{ steps.version.outputs.version }}'
 
-      - name: Publish signed Windows release
+      - name: Publish portable Windows release
         uses: softprops/action-gh-release@v2
         with:
           fail_on_unmatched_files: true
@@ -72,15 +65,9 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe
-            build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-installer.exe.sha256
             build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-portable.exe
             build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-portable.exe.sha256
-            build/release/FluxDM-${{ steps.version.outputs.version }}-browser-extension.zip
-            build/release/FluxDM-${{ steps.version.outputs.version }}-browser-extension.zip.sha256
             build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-portable-browser-integration.zip
             build/release/FluxDM-${{ steps.version.outputs.version }}-windows-amd64-portable-browser-integration.zip.sha256
             build/release/SHA256SUMS.txt
             build/release/release-manifest.json
-            build/release/update-manifest.json
-            build/release/update-manifest.sig

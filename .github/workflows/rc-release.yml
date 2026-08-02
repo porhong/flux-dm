@@ -60,7 +60,7 @@ jobs:
             -Version '${{ steps.version.outputs.product_version }}' `
             -ReleaseVersion '${{ steps.version.outputs.release_version }}'
 
-      - name: Publish portable release candidate and browser integration
+      - name: Publish portable release candidate
         uses: softprops/action-gh-release@v2
         with:
           fail_on_unmatched_files: true
@@ -74,8 +74,6 @@ jobs:
           files: |
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable.exe
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable.exe.sha256
-            build/release/FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip
-            build/release/FluxDM-${{ steps.version.outputs.release_version }}-browser-extension.zip.sha256
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable-browser-integration.zip
             build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable-browser-integration.zip.sha256
             build/release/SHA256SUMS.txt
