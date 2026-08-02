@@ -84,6 +84,56 @@ func TestFileManagementRenamesWithCollisionAndRemovesHistory(t *testing.T) {
 	}
 }
 
+func TestFileManagementPermanentlyDeletesCompletedFilesWithoutShell(t *testing.T) {
+	ctx := context.Background()
+	database, err := persistence.Open(ctx, filepath.Join(t.TempDir(), "files.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	task := createCompletedFileDownload(t, database.Downloads(), t.TempDir(), "portable.txt", download.StateCompleted)
+	service := application.NewFileManagementService(database.Downloads(), fluxfs.NewCompletedFileManager(nil), nil)
+
+	result, err := service.DeleteFilesAndRemoveHistory(ctx, []string{task.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.RemovedIDs) != 1 || result.RemovedIDs[0] != task.ID || len(result.Failures) != 0 {
+		t.Fatalf("unexpected deletion result: %+v", result)
+	}
+	if _, err := os.Stat(task.DestinationPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("completed file was not permanently deleted: %v", err)
+	}
+	if _, err := database.Downloads().Get(ctx, task.ID); !errors.Is(err, download.ErrNotFound) {
+		t.Fatalf("expected history deletion, got %v", err)
+	}
+}
+
+func TestFileManagementKeepsHistoryWhenPermanentFileDeletionFails(t *testing.T) {
+	ctx := context.Background()
+	database, err := persistence.Open(ctx, filepath.Join(t.TempDir(), "files.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	task := createCompletedFileDownload(t, database.Downloads(), t.TempDir(), "missing.txt", download.StateCompleted)
+	if err := os.Remove(task.DestinationPath); err != nil {
+		t.Fatal(err)
+	}
+	service := application.NewFileManagementService(database.Downloads(), fluxfs.NewCompletedFileManager(nil), nil)
+
+	result, err := service.DeleteFilesAndRemoveHistory(ctx, []string{task.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.RemovedIDs) != 0 || len(result.Failures) != 1 || result.Failures[0].ID != task.ID {
+		t.Fatalf("unexpected deletion result: %+v", result)
+	}
+	if _, err := database.Downloads().Get(ctx, task.ID); err != nil {
+		t.Fatalf("history should remain after a failed deletion: %v", err)
+	}
+}
+
 func TestFileManagementRejectsNonCompletedDownloads(t *testing.T) {
 	ctx := context.Background()
 	database, err := persistence.Open(ctx, filepath.Join(t.TempDir(), "files.db"))

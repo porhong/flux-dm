@@ -9,6 +9,7 @@ import {
   CreateDownload as invokeCreateDownload,
   DefaultDownloadDirectory as invokeDefaultDownloadDirectory,
   DeleteCategory as invokeDeleteCategory,
+	DeleteCompletedDownloadFiles as invokeDeleteCompletedDownloadFiles,
   DeleteDownloadedFile as invokeDeleteDownloadedFile,
   DeleteQueue as invokeDeleteQueue,
   DeleteSchedule as invokeDeleteSchedule,
@@ -267,6 +268,7 @@ export async function renameCompletedDownloadFile(id: string, fileName: string):
 export async function moveCompletedDownloadFiles(input: MoveCompletedDownloadsInput): Promise<CompletedFileOperationResult> { return completedFileOperationResultSchema.parse(await invokeMoveCompletedDownloadFiles(input)) }
 export async function removeCompletedDownloadHistory(ids: string[]): Promise<CompletedFileOperationResult> { return completedFileOperationResultSchema.parse(await invokeRemoveCompletedDownloadHistory(ids)) }
 export async function recycleCompletedDownloadFiles(ids: string[]): Promise<CompletedFileOperationResult> { return completedFileOperationResultSchema.parse(await invokeRecycleCompletedDownloadFiles(ids)) }
+export async function deleteCompletedDownloadFiles(ids: string[]): Promise<CompletedFileOperationResult> { return completedFileOperationResultSchema.parse(await invokeDeleteCompletedDownloadFiles(ids)) }
 
 export async function startDownload(id: string): Promise<void> {
   await invokeStartDownload(id)

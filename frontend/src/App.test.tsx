@@ -7,11 +7,12 @@ import { useUIStore } from "@/stores/ui-store"
 import App from "./App"
 import { BrowserConfirmationSurface } from "./features/downloads/browser-confirmation-surface"
 
-const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, discardBrowserDownloadMock, downloadUpdateMock, getUpdateStatusMock, healthCheckMock, hideBrowserConfirmationMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
+const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, deleteCompletedDownloadFilesMock, discardBrowserDownloadMock, downloadUpdateMock, getUpdateStatusMock, healthCheckMock, hideBrowserConfirmationMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
   cancelDownloadMock: vi.fn(),
 	checkForUpdatesMock: vi.fn(),
   confirmBrowserDownloadMock: vi.fn(),
   defaultDownloadDirectoryMock: vi.fn(),
+	deleteCompletedDownloadFilesMock: vi.fn(),
   discardBrowserDownloadMock: vi.fn(),
 	downloadUpdateMock: vi.fn(),
 	getUpdateStatusMock: vi.fn(),
@@ -37,6 +38,7 @@ vi.mock("@/lib/backend", async (importOriginal) => {
 		checkForUpdates: checkForUpdatesMock,
     confirmBrowserDownload: confirmBrowserDownloadMock,
     defaultDownloadDirectory: defaultDownloadDirectoryMock,
+		deleteCompletedDownloadFiles: deleteCompletedDownloadFilesMock,
     discardBrowserDownload: discardBrowserDownloadMock,
 		downloadUpdate: downloadUpdateMock,
 		getUpdateStatus: getUpdateStatusMock,
@@ -445,6 +447,20 @@ describe("App", () => {
     expect(screen.getByRole("dialog", { name: "Remove completed files" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Recycle files" }))
     expect(recycleCompletedDownloadFilesMock).toHaveBeenCalledWith(["completed"])
+  })
+
+  it("permanently deletes selected completed files without the Recycle Bin", async () => {
+    const user = userEvent.setup()
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "portable", fileName: "portable.zip", state: "completed" })])
+    deleteCompletedDownloadFilesMock.mockResolvedValue({ updated: [], removedIds: ["portable"], skippedIds: [], failures: [] })
+    render(<App />)
+
+    await user.click(await screen.findByLabelText("Select portable.zip"))
+    await user.click(screen.getByRole("button", { name: "Remove files" }))
+    await user.click(screen.getByLabelText("Permanently delete files"))
+    await user.click(screen.getByRole("button", { name: "Delete files permanently" }))
+    expect(deleteCompletedDownloadFilesMock).toHaveBeenCalledWith(["portable"])
+    expect(recycleCompletedDownloadFilesMock).not.toHaveBeenCalled()
   })
 
   it("supports keyboard transfer and global shortcuts", async () => {
