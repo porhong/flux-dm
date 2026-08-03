@@ -19,6 +19,14 @@ function Resolve-RequiredFile([string]$Path, [string]$Label) {
   return $resolved
 }
 
+function Get-ContainedRelativePath([string]$Root, [string]$Candidate, [string]$Label) {
+  $normalizedRoot = [IO.Path]::GetFullPath($Root).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+  $normalizedCandidate = [IO.Path]::GetFullPath($Candidate)
+  $rootPrefix = "$normalizedRoot$([IO.Path]::DirectorySeparatorChar)"
+  if (-not $normalizedCandidate.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw "$Label is outside the extension directory: $Candidate" }
+  return $normalizedCandidate.Substring($rootPrefix.Length)
+}
+
 $app = Resolve-RequiredFile $AppPath 'AppPath'
 $nativeHost = Resolve-RequiredFile $NativeHostPath 'NativeHostPath'
 $extension = (Resolve-Path -LiteralPath $ExtensionPath -ErrorAction Stop).Path
@@ -36,7 +44,7 @@ try {
   Copy-Item -LiteralPath $nativeHost -Destination (Join-Path $packageRoot 'FluxDM.NativeHost.exe')
   $packagedExtension = Join-Path $packageRoot 'browser-extension'
   foreach ($sourceFile in Get-ChildItem -LiteralPath $extension -Recurse -File) {
-    $relativePath = $sourceFile.FullName.Substring($extension.Length + 1)
+    $relativePath = Get-ContainedRelativePath $extension $sourceFile.FullName 'Extension file'
     if ($relativePath -eq 'README.md' -or $relativePath -eq 'policy.test.cjs' -or $relativePath.StartsWith('native-host\', [StringComparison]::OrdinalIgnoreCase)) { continue }
     $destination = Join-Path $packagedExtension $relativePath
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
