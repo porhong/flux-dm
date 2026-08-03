@@ -43,18 +43,13 @@ try {
     Copy-Item -LiteralPath $sourceFile.FullName -Destination $destination
   }
   if (-not (Test-Path -LiteralPath (Join-Path $packagedExtension 'manifest.json'))) { throw 'Portable package is missing the browser extension manifest.' }
-  New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot 'scripts') | Out-Null
-  Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'install-browser-integration.ps1') -Destination (Join-Path $packageRoot 'scripts\install-browser-integration.ps1')
-  Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'uninstall-browser-integration.ps1') -Destination (Join-Path $packageRoot 'scripts\uninstall-browser-integration.ps1')
-  New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot 'browser-integration') | Out-Null
-  Copy-Item -LiteralPath (Join-Path $root 'browser-extension\native-host\com.fluxdm.browser.template.json') -Destination (Join-Path $packageRoot 'browser-integration\com.fluxdm.browser.template.json')
   @(
     '# FluxDM portable',
     '',
     '1. Extract this folder to a user-writable location, such as Documents or a dedicated folder under LocalAppData.',
     '2. Run FluxDM.exe. Its settings, database, and logs are stored in the adjacent data folder.',
-    '3. To enable the browser extension, run scripts\install-browser-integration.ps1, then load browser-extension as an unpacked extension in Chrome, Edge, or Brave.',
-    '4. If you move this folder, rerun the browser-integration script. To remove the current-user registration, run scripts\uninstall-browser-integration.ps1.',
+    '3. FluxDM automatically installs its browser integration in LocalAppData. In Settings, choose Set up and open extension folder, then load that folder unpacked in Chrome, Edge, or Brave.',
+    '4. If you move this folder, open FluxDM once so it can refresh the browser integration registration.',
     '',
     'The portable application does not require administrator access and does not create Program Files shortcuts or an uninstaller. Replace this extracted folder with a newer verified portable ZIP to update it.'
   ) -join "`r`n" | Set-Content -Encoding utf8 -NoNewline -LiteralPath (Join-Path $packageRoot 'README-PORTABLE.md')

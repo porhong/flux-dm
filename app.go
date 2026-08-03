@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -46,6 +47,7 @@ type App struct {
 	pending       *browserintegration.PendingStore
 	siteProfiles  *application.SiteProfileService
 	updates       *application.UpdateService
+	browserSetup  application.BrowserIntegrationDTO
 	forceQuit     atomic.Bool
 	trayMu        sync.Mutex
 	trayStarted   bool
@@ -115,6 +117,11 @@ func (a *App) ServiceStartup(ctx context.Context, _ wails.ServiceOptions) error 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.startTray()
+	if application.IsPortableBuild() {
+		if _, err := a.setupBrowserIntegration(); err != nil {
+			a.logger.Error("portable browser integration setup failed", map[string]any{"error": err.Error()})
+		}
+	}
 	if executable, err := os.Executable(); err == nil {
 		if notifyErr := platformwindows.ConfigureNotifications(executable, ""); notifyErr != nil {
 			a.logger.Error("notification setup failed", map[string]any{"error": notifyErr.Error()})
@@ -212,6 +219,51 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.bus.Publish(events.Event{Type: events.AppReady, Message: "Backend services are ready"})
 	a.logger.Info("application started", map[string]any{"release_version": application.ReleaseVersion})
+}
+
+func (a *App) setupBrowserIntegration() (application.BrowserIntegrationDTO, error) {
+	if !application.IsPortableBuild() {
+		return application.BrowserIntegrationDTO{Message: "Browser integration setup is available in the portable release."}, application.NewError(application.ErrUnavailable, "Browser integration setup is unavailable for this build.", nil)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return application.BrowserIntegrationDTO{}, application.NewError(application.ErrInternal, "Could not locate the portable application.", err)
+	}
+	status, err := browserintegration.InstallPortable(executable, application.ReleaseVersion)
+	dto := application.BrowserIntegrationDTO{Ready: status.Ready, ExtensionPath: status.ExtensionPath, Message: status.Message}
+	a.browserSetup = dto
+	if err != nil {
+		return dto, application.NewError(application.ErrUnavailable, "Browser integration needs repair. Re-extract the complete FluxDM portable ZIP, then try again.", err)
+	}
+	return dto, nil
+}
+
+// GetBrowserIntegrationStatus returns the safe, local setup state for the
+// Settings screen. It never probes or exposes browser session data.
+func (a *App) GetBrowserIntegrationStatus() (application.BrowserIntegrationDTO, error) {
+	return a.browserSetup, nil
+}
+
+// SetupBrowserIntegration repairs the portable native-host registration and
+// refreshes the bundled extension under LocalAppData.
+func (a *App) SetupBrowserIntegration() (application.BrowserIntegrationDTO, error) {
+	return a.setupBrowserIntegration()
+}
+
+// OpenBrowserExtensionFolder opens the generated extension folder after a
+// successful setup. The path is never supplied by a browser or frontend.
+func (a *App) OpenBrowserExtensionFolder() error {
+	status, err := a.setupBrowserIntegration()
+	if err != nil {
+		return err
+	}
+	if !status.Ready || status.ExtensionPath == "" {
+		return application.NewError(application.ErrUnavailable, "Browser integration is not ready.", nil)
+	}
+	if err := exec.Command("explorer.exe", status.ExtensionPath).Start(); err != nil {
+		return application.NewError(application.ErrInternal, "Could not open the browser extension folder.", err)
+	}
+	return nil
 }
 
 func (a *App) shutdown(_ context.Context) {

@@ -17,6 +17,7 @@ import {
 	DownloadUpdate as invokeDownloadUpdate,
   DiscardBrowserDownload as invokeDiscardBrowserDownload,
 	HealthCheck as invokeHealthCheck,
+	GetBrowserIntegrationStatus as invokeGetBrowserIntegrationStatus,
 	HideBrowserConfirmation as invokeHideBrowserConfirmation,
 	GetUpdateStatus as invokeGetUpdateStatus,
 	InstallPreparedUpdate as invokeInstallPreparedUpdate,
@@ -29,6 +30,7 @@ import {
   ListSiteProfiles as invokeListSiteProfiles,
 	MoveCompletedDownloadFiles as invokeMoveCompletedDownloadFiles,
 	OpenCompletedDownloadFile as invokeOpenCompletedDownloadFile,
+	OpenBrowserExtensionFolder as invokeOpenBrowserExtensionFolder,
   PauseDownload as invokePauseDownload,
   ProbeURL as invokeProbeURL,
 	RestartDownload as invokeRestartDownload,
@@ -44,7 +46,8 @@ import {
 	SaveSiteProfile as invokeSaveSiteProfile,
 	SaveUpdatePreferences as invokeSaveUpdatePreferences,
   SetDownloadBandwidthLimit as invokeSetDownloadBandwidthLimit,
-  SetGlobalBandwidthLimit as invokeSetGlobalBandwidthLimit,
+	SetGlobalBandwidthLimit as invokeSetGlobalBandwidthLimit,
+	SetupBrowserIntegration as invokeSetupBrowserIntegration,
   SelectDestinationDirectory as invokeSelectDestinationDirectory,
   StartDownload as invokeStartDownload,
 } from "../../bindings/github.com/fluxdm/fluxdm/app"
@@ -121,6 +124,8 @@ const probeSchema = z.object({
 })
 
 export type HealthStatus = z.infer<typeof healthStatusSchema>
+const browserIntegrationSchema = z.object({ ready: z.boolean(), extensionPath: z.string(), message: z.string() })
+export type BrowserIntegrationStatus = z.infer<typeof browserIntegrationSchema>
 export type DownloadItem = z.infer<typeof downloadSchema>
 export type DownloadProgress = z.infer<typeof progressSchema>
 export type ProbeResult = z.infer<typeof probeSchema>
@@ -197,6 +202,9 @@ export interface SaveSiteProfileInput {id:string;name:string;hostPattern:string;
 export async function healthCheck(): Promise<HealthStatus> {
   return healthStatusSchema.parse(await invokeHealthCheck())
 }
+export async function getBrowserIntegrationStatus(): Promise<BrowserIntegrationStatus> { return browserIntegrationSchema.parse(await invokeGetBrowserIntegrationStatus()) }
+export async function setupBrowserIntegration(): Promise<BrowserIntegrationStatus> { return browserIntegrationSchema.parse(await invokeSetupBrowserIntegration()) }
+export async function openBrowserExtensionFolder(): Promise<void> { await invokeOpenBrowserExtensionFolder() }
 
 export async function probeURL(url: string): Promise<ProbeResult> {
   return probeSchema.parse(await invokeProbeURL(url))

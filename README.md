@@ -55,9 +55,7 @@ The SQLite database and structured log are stored below the current user's confi
 
 ## Browser extension
 
-Browser integration requires the native host. For a portable release, extract `FluxDM-X.Y.Z-rc.N-windows-amd64-portable-browser-integration.zip` into the same folder as the portable EXE, run `scripts\install-browser-integration.ps1`, then load its `browser-extension` folder unpacked. Keep exactly one versioned portable EXE in that folder. Each release also publishes a separate browser-extension ZIP for store submission or unpacked loading.
-
-The portable browser-integration ZIP contains the matching extension. Extract it before using **Load unpacked**, because Chromium browsers do not import a local ZIP directly. For a source-tree development build, run `scripts\install-browser-integration.ps1` first and load this repository's `browser-extension` directory.
+Browser integration is included in every portable package. Extract the portable ZIP and run `FluxDM.exe`; FluxDM copies its native host and extension to LocalAppData and registers the fixed host for Chrome, Edge, and Brave. In **Settings → Browser integration**, choose **Set up and open extension folder**, then use your browser's **Load unpacked** action to select that folder. Chromium intentionally requires this explicit confirmation.
 
 The isolated real-browser smoke harness temporarily registers the native host under the current user, launches FluxDM with temporary application/user data, exercises connection, direct handoff, and automatic interception, then restores the registry and removes all test state:
 
@@ -98,20 +96,20 @@ Use `scripts\verify-installed-layout.ps1` to validate installed files, exact nat
 
 ## Releases
 
-Download FluxDM from the repository's [GitHub Releases](../../releases) page. Every release includes a standalone portable EXE; save it in a user-writable folder and run it. Settings, history, and logs are kept in its adjacent `data` folder. Portable builds intentionally do not run the installer-oriented automatic updater: replace the EXE with a newer verified portable EXE.
+Download FluxDM from the repository's [GitHub Releases](../../releases) page. Every release includes a self-contained portable ZIP; extract it to a user-writable folder and run `FluxDM.exe`. Settings, history, and logs are kept in its adjacent `data` folder. Portable builds intentionally do not run the installer-oriented automatic updater: replace the extracted folder with a newer verified package.
 
-For an RC `X.Y.Z-rc.N`, download `FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe` and either its adjacent `.sha256` file or `SHA256SUMS.txt`. Verify it in PowerShell before running:
+For an RC `X.Y.Z-rc.N`, download `FluxDM-X.Y.Z-rc.N-windows-amd64-portable.zip` and either its adjacent `.sha256` file or `SHA256SUMS.txt`. Verify it in PowerShell before extracting:
 
 ```powershell
-Get-FileHash .\FluxDM-X.Y.Z-rc.N-windows-amd64-portable.exe -Algorithm SHA256
+Get-FileHash .\FluxDM-X.Y.Z-rc.N-windows-amd64-portable.zip -Algorithm SHA256
 Get-Content .\SHA256SUMS.txt
 ```
 
-The reported hash must match the portable EXE entry. `release-manifest.json` is the corresponding machine-readable asset manifest.
+The reported hash must match the portable ZIP entry. `release-manifest.json` is the corresponding machine-readable asset manifest.
 
-Release candidates publish an **unsigned portable EXE** and its matching portable browser-integration ZIP. Update and merge the intended `X.Y.Z` product version, then push a new `vX.Y.Z-rc.N` tag (for example, `v1.0.0-rc.1`). This creates a clearly labelled GitHub prerelease from a GitHub-hosted runner. Verify the checksums before running or extracting; Windows may still display a SmartScreen or publisher warning.
+Release candidates publish an **unsigned self-contained portable ZIP**. Update and merge the intended `X.Y.Z` product version, then push a new `vX.Y.Z-rc.N` tag (for example, `v1.0.0-rc.1`). This creates a clearly labelled GitHub prerelease from a GitHub-hosted runner. Verify the checksums before extracting; Windows may still display a SmartScreen or publisher warning.
 
-Stable portable releases are created by pushing the matching `vX.Y.Z` tag. The GitHub-hosted Windows workflow validates, builds, and publishes only the portable EXE, matching portable browser-integration ZIP, checksums, and release manifest. No installer, installer updater metadata, or standalone extension ZIP is published.
+Stable portable releases are created by pushing the matching `vX.Y.Z` tag. The GitHub-hosted Windows workflow validates, builds, and publishes only the self-contained portable ZIP, its checksum, and release manifest. No installer, installer updater metadata, or standalone extension ZIP is published.
 
 For the complete RC and production procedures—including exact tag commands, required release assets, signing approval, checksum/signature verification, and recovery from a failed candidate—follow the [release build process](docs/release/release-build-process.md).
 

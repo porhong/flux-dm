@@ -1,10 +1,37 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestResolveRuntimeUsesInstalledHostConfiguration(t *testing.T) {
+	directory := t.TempDir()
+	desktop := filepath.Join(directory, "FluxDM-1.0.0-windows-amd64-portable.exe")
+	if err := os.WriteFile(desktop, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	host := filepath.Join(directory, "FluxDM.NativeHost.exe")
+	if err := os.WriteFile(host, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(runtimeConfig{Version: 1, DesktopPath: desktop, DataDir: filepath.Join(directory, "data")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "fluxdm-browser-host.json"), payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	paths, resolvedDesktop, err := resolveRuntimeForExecutable(host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if paths.DataDir != filepath.Join(directory, "data") || resolvedDesktop != desktop {
+		t.Fatalf("runtime = %#v, %q", paths, resolvedDesktop)
+	}
+}
 
 func TestDesktopExecutablePathPrefersInstalledExecutable(t *testing.T) {
 	directory := t.TempDir()

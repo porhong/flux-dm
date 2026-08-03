@@ -70,11 +70,9 @@ jobs:
           body: |
             ## Portable unsigned release candidate
 
-            This test build is portable: save the EXE in a user-writable folder and run it; it does not install software or require administrator access. It is intentionally **not Authenticode-signed**, so Windows may show a SmartScreen or publisher warning. Verify its SHA-256 against `SHA256SUMS.txt` before using it. For browser handoff, extract the portable browser-integration ZIP into the same folder as the portable EXE, run its registration script, and load its extension folder unpacked. Do not treat this prerelease as a production release.
+            This test build is portable: extract the ZIP into a user-writable folder and run FluxDM.exe; it does not install software or require administrator access. It is intentionally **not Authenticode-signed**, so Windows may show a SmartScreen or publisher warning. Verify its SHA-256 against `SHA256SUMS.txt` before using it. FluxDM installs its native browser host automatically; use Settings to open the extension folder, then load it unpacked. Do not treat this prerelease as a production release.
           files: |
-            build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable.exe
-            build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable.exe.sha256
-            build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable-browser-integration.zip
-            build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable-browser-integration.zip.sha256
+            build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable.zip
+            build/release/FluxDM-${{ steps.version.outputs.release_version }}-windows-amd64-portable.zip.sha256
             build/release/SHA256SUMS.txt
             build/release/release-manifest.json

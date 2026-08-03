@@ -7,7 +7,7 @@ import { useUIStore } from "@/stores/ui-store"
 import App from "./App"
 import { BrowserConfirmationSurface } from "./features/downloads/browser-confirmation-surface"
 
-const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, deleteCompletedDownloadFilesMock, discardBrowserDownloadMock, downloadUpdateMock, getUpdateStatusMock, healthCheckMock, hideBrowserConfirmationMock, listDownloadsMock, listPendingBrowserDownloadsMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, startDownloadMock } = vi.hoisted(() => ({
+const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, defaultDownloadDirectoryMock, deleteCompletedDownloadFilesMock, discardBrowserDownloadMock, downloadUpdateMock, getBrowserIntegrationStatusMock, getUpdateStatusMock, healthCheckMock, hideBrowserConfirmationMock, listDownloadsMock, listPendingBrowserDownloadsMock, openBrowserExtensionFolderMock, openCompletedDownloadFileMock, pauseDownloadMock, probeURLMock, recycleCompletedDownloadFilesMock, resumeDownloadMock, restartDownloadMock, selectDestinationDirectoryMock, setupBrowserIntegrationMock, startDownloadMock } = vi.hoisted(() => ({
   cancelDownloadMock: vi.fn(),
 	checkForUpdatesMock: vi.fn(),
   confirmBrowserDownloadMock: vi.fn(),
@@ -15,18 +15,21 @@ const { cancelDownloadMock, checkForUpdatesMock, confirmBrowserDownloadMock, def
 	deleteCompletedDownloadFilesMock: vi.fn(),
   discardBrowserDownloadMock: vi.fn(),
 	downloadUpdateMock: vi.fn(),
+	getBrowserIntegrationStatusMock: vi.fn(),
 	getUpdateStatusMock: vi.fn(),
   healthCheckMock: vi.fn(),
 	 hideBrowserConfirmationMock: vi.fn(),
   listDownloadsMock: vi.fn(),
-  listPendingBrowserDownloadsMock: vi.fn(),
+	listPendingBrowserDownloadsMock: vi.fn(),
+	openBrowserExtensionFolderMock: vi.fn(),
   openCompletedDownloadFileMock: vi.fn(),
   pauseDownloadMock: vi.fn(),
   probeURLMock: vi.fn(),
   recycleCompletedDownloadFilesMock: vi.fn(),
   resumeDownloadMock: vi.fn(),
   restartDownloadMock: vi.fn(),
-  selectDestinationDirectoryMock: vi.fn(),
+	selectDestinationDirectoryMock: vi.fn(),
+	setupBrowserIntegrationMock: vi.fn(),
   startDownloadMock: vi.fn(),
 }))
 
@@ -42,17 +45,20 @@ vi.mock("@/lib/backend", async (importOriginal) => {
     discardBrowserDownload: discardBrowserDownloadMock,
 		downloadUpdate: downloadUpdateMock,
 		getUpdateStatus: getUpdateStatusMock,
+		getBrowserIntegrationStatus: getBrowserIntegrationStatusMock,
     healthCheck: healthCheckMock,
 		hideBrowserConfirmation: hideBrowserConfirmationMock,
     listDownloads: listDownloadsMock,
     listPendingBrowserDownloads: listPendingBrowserDownloadsMock,
-    openCompletedDownloadFile: openCompletedDownloadFileMock,
+		openCompletedDownloadFile: openCompletedDownloadFileMock,
+		openBrowserExtensionFolder: openBrowserExtensionFolderMock,
     pauseDownload: pauseDownloadMock,
     probeURL: probeURLMock,
     recycleCompletedDownloadFiles: recycleCompletedDownloadFilesMock,
     resumeDownload: resumeDownloadMock,
     restartDownload: restartDownloadMock,
-    selectDestinationDirectory: selectDestinationDirectoryMock,
+		selectDestinationDirectory: selectDestinationDirectoryMock,
+		setupBrowserIntegration: setupBrowserIntegrationMock,
     startDownload: startDownloadMock,
   }
 })
@@ -72,6 +78,9 @@ describe("App", () => {
     defaultDownloadDirectoryMock.mockResolvedValue("C:\\Users\\test\\Downloads")
     discardBrowserDownloadMock.mockResolvedValue(undefined)
 		getUpdateStatusMock.mockResolvedValue(updateStatusFixture())
+		getBrowserIntegrationStatusMock.mockResolvedValue({ ready: true, extensionPath: "C:\\Users\\test\\AppData\\Local\\FluxDM\\browser-integration\\1.0.0\\browser-extension", message: "Browser integration is ready." })
+		openBrowserExtensionFolderMock.mockResolvedValue(undefined)
+		setupBrowserIntegrationMock.mockResolvedValue({ ready: true, extensionPath: "C:\\Users\\test\\AppData\\Local\\FluxDM\\browser-integration\\1.0.0\\browser-extension", message: "Browser integration is ready." })
 		checkForUpdatesMock.mockResolvedValue(updateStatusFixture({ phase: "available", availableVersion: "1.1.0" }))
 		downloadUpdateMock.mockResolvedValue(updateStatusFixture({ phase: "ready", availableVersion: "1.1.0", canInstall: true }))
     selectDestinationDirectoryMock.mockResolvedValue("")
@@ -238,7 +247,7 @@ describe("App", () => {
     expect(discardBrowserDownloadMock).toHaveBeenCalledWith("browser-pending-failure")
   })
 
-  it("navigates between sidebar sections", async () => {
+	it("navigates between sidebar sections", async () => {
     const user = userEvent.setup()
     render(<App />)
 
@@ -346,6 +355,15 @@ describe("App", () => {
     expect(screen.getByRole("dialog", { name: "Download properties" })).toBeInTheDocument()
   })
 
+  it("explains authorization failures without encouraging an unsafe retry", async () => {
+    listDownloadsMock.mockResolvedValue([downloadFixture({ id: "denied", fileName: "private-file.zip", state: "failed", lastError: "The server returned HTTP 403." })])
+    render(<App />)
+    const row = (await screen.findByText("private-file.zip")).closest<HTMLElement>("[role='row']")
+    expect(screen.getByText("HTTP 403 — access denied")).toBeInTheDocument()
+    fireEvent.doubleClick(row as HTMLElement)
+    expect(await screen.findByText("The server refused this request. Verify this is a direct downloadable file. For a site you are authorized to use, start it from the browser integration with cookie sharing enabled.")).toBeInTheDocument()
+  })
+
 	it("shows and manually checks application updates from Settings", async () => {
 		const user = userEvent.setup()
 		render(<App />)
@@ -355,6 +373,17 @@ describe("App", () => {
 		await user.click(screen.getByRole("button", { name: "Check now" }))
 		await waitFor(() => expect(checkForUpdatesMock).toHaveBeenCalledOnce())
 		expect(await screen.findByText("FluxDM 1.1.0 is available")).toBeInTheDocument()
+	})
+
+	it("repairs browser integration and opens its generated extension folder", async () => {
+		const user = userEvent.setup()
+		render(<App />)
+		await user.click(screen.getByRole("button", { name: "Settings" }))
+		expect(await screen.findByRole("region", { name: "Browser integration" })).toBeInTheDocument()
+		await user.click(screen.getByRole("button", { name: "Set up and open extension folder" }))
+		await waitFor(() => expect(openBrowserExtensionFolderMock).toHaveBeenCalledOnce())
+		await user.click(screen.getByRole("button", { name: "Repair integration" }))
+		await waitFor(() => expect(setupBrowserIntegrationMock).toHaveBeenCalledOnce())
 	})
 
 	it("shows the backend update error instead of replacing it with a connection-only message", async () => {

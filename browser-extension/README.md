@@ -1,6 +1,6 @@
 # Install the FluxDM browser extension
 
-The standalone portable FluxDM EXE requires the matching `portable-browser-integration.zip` for browser handoff. Extract that ZIP into the same folder as the portable EXE, run its registration script, then load its included extension folder unpacked. Installed releases register the native host during setup.
+The portable FluxDM ZIP includes browser handoff. After extracting and opening FluxDM, use **Settings → Browser integration → Set up and open extension folder**. FluxDM registers its current-user native host under LocalAppData; then load the opened extension folder unpacked.
 
 The matching portable browser-integration ZIP contains the unpacked extension. Chrome, Edge, and Brave do not install a local ZIP directly from their extensions pages: extract that ZIP, enable **Developer mode**, then select **Load unpacked** and choose its `browser-extension` folder.
 

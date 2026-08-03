@@ -35,9 +35,9 @@ try {
   $portableApp = Join-Path $root 'build\bin\FluxDM.exe'
   $portableNativeHost = Join-Path $root 'build\bin\FluxDM.NativeHost.exe'
   go build -trimpath -ldflags $commonLDFlags -o $portableNativeHost .\cmd\fluxdm-native-host; if($LASTEXITCODE){throw 'Portable native host build failed'}
-  $portableBrowserIntegrationPackage = Join-Path $root 'build\bin\FluxDM-portable-browser-integration.zip'
-  & "$PSScriptRoot\package-portable-browser-integration.ps1" -Version $ReleaseVersion -NativeHostPath $portableNativeHost -OutputPath $portableBrowserIntegrationPackage -Force | Out-Null
+  $portablePackage = Join-Path $root 'build\bin\FluxDM-portable.zip'
+  & "$PSScriptRoot\package-portable.ps1" -Version $ReleaseVersion -AppPath $portableApp -NativeHostPath $portableNativeHost -OutputPath $portablePackage -Force | Out-Null
   & "$PSScriptRoot\verify-version-metadata.ps1" -Path $portableApp -Version $productVersion
-  & "$PSScriptRoot\stage-portable-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $productVersion -PortablePath $portableApp -PortableBrowserIntegrationPackagePath $portableBrowserIntegrationPackage -OutputDirectory $ReleaseOutputDirectory | Out-Null
+  & "$PSScriptRoot\stage-portable-release-assets.ps1" -Version $ReleaseVersion -ProductVersion $productVersion -PortablePath $portablePackage -OutputDirectory $ReleaseOutputDirectory | Out-Null
   Write-Host "Portable release assets created in $ReleaseOutputDirectory"
 } finally { Pop-Location }

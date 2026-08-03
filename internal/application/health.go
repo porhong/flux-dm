@@ -101,6 +101,14 @@ type ReadyEvent struct {
 	Message string `json:"message"`
 }
 
+// BrowserIntegrationDTO is a UI-facing status only. The extension path is a
+// local, generated folder suitable for Chromium's Load unpacked picker.
+type BrowserIntegrationDTO struct {
+	Ready         bool   `json:"ready"`
+	ExtensionPath string `json:"extensionPath"`
+	Message       string `json:"message"`
+}
+
 func NewHealthStatus() HealthStatus {
 	return HealthStatus{
 		Status:    "ok",

@@ -219,7 +219,7 @@ textarea {
 }
 
 .download-list-row {
-  grid-template-columns: 44px minmax(0, 1fr) minmax(180px, 38%) 132px 92px;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(180px, 35%) minmax(168px, 20%) 92px;
 }
 
 @media (min-width: 961px) {
@@ -230,7 +230,7 @@ textarea {
 
 @media (max-width: 1280px) {
   .download-list-row {
-    grid-template-columns: 36px minmax(0, 1fr) minmax(180px, 40%) 132px 92px;
+    grid-template-columns: 36px minmax(0, 1fr) minmax(180px, 36%) minmax(152px, 20%) 92px;
   }
 
   .download-action-label {

@@ -49,6 +49,39 @@ export class AssignDownloadsInput {
     }
 }
 
+/**
+ * BrowserIntegrationDTO is a UI-facing status only. The extension path is a
+ * local, generated folder suitable for Chromium's Load unpacked picker.
+ */
+export class BrowserIntegrationDTO {
+    "ready": boolean;
+    "extensionPath": string;
+    "message": string;
+
+    /** Creates a new BrowserIntegrationDTO instance. */
+    constructor($$source: Partial<BrowserIntegrationDTO> = {}) {
+        if (!("ready" in $$source)) {
+            this["ready"] = false;
+        }
+        if (!("extensionPath" in $$source)) {
+            this["extensionPath"] = "";
+        }
+        if (!("message" in $$source)) {
+            this["message"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new BrowserIntegrationDTO instance from a string or object.
+     */
+    static createFrom($$source: any = {}): BrowserIntegrationDTO {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new BrowserIntegrationDTO($$parsedSource as Partial<BrowserIntegrationDTO>);
+    }
+}
+
 export class CompletedFileOperationFailure {
     "id": string;
     "message": string;

@@ -3,6 +3,7 @@
 
 export {
     AssignDownloadsInput,
+    BrowserIntegrationDTO,
     CompletedFileOperationFailure,
     CompletedFileOperationResult,
     CreateDownloadInput,
